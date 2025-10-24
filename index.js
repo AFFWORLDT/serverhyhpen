@@ -112,25 +112,32 @@ app.use((err, req, res, next) => {
   }
 });
 
-// MongoDB Connection
-const MONGODB_URI = 'mongodb+srv://affworldtechnologies:wMbiyR0ZM8JWfOYl@loc.6qmwn3p.mongodb.net/hypgymdubaiii';
+// MongoDB Connection with retry logic
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://affworldtechnologies:wMbiyR0ZM8JWfOYl@loc.6qmwn3p.mongodb.net/hypgymdubaiii';
 
-mongoose.connect(MONGODB_URI, {
-  serverSelectionTimeoutMS: 5000, // Keep trying to send operations for 5 seconds
-  socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
-  bufferCommands: false, // Disable mongoose buffering
-  maxPoolSize: 10, // Maintain up to 10 socket connections
-  retryWrites: true,
-  w: 'majority'
-})
-.then(() => {
-  console.log('✅ MongoDB Connected Successfully');
-})
-.catch((error) => {
-  console.error('❌ MongoDB Connection Error:', error);
-  console.error('Connection string:', MONGODB_URI.replace(/\/\/.*@/, '//***:***@')); // Hide credentials in logs
-  // Don't exit process, let the app continue
-});
+const connectWithRetry = () => {
+  mongoose.connect(MONGODB_URI, {
+    serverSelectionTimeoutMS: 10000, // Increased timeout
+    socketTimeoutMS: 45000,
+    bufferCommands: false,
+    maxPoolSize: 10,
+    retryWrites: true,
+    w: 'majority',
+    connectTimeoutMS: 10000,
+    heartbeatFrequencyMS: 10000
+  })
+  .then(() => {
+    console.log('✅ MongoDB Connected Successfully');
+  })
+  .catch((error) => {
+    console.error('❌ MongoDB Connection Error:', error.message);
+    console.error('Connection string:', MONGODB_URI.replace(/\/\/.*@/, '//***:***@'));
+    console.log('🔄 Retrying MongoDB connection in 5 seconds...');
+    setTimeout(connectWithRetry, 5000);
+  });
+};
+
+connectWithRetry();
 
 // MongoDB connection check middleware
 const checkMongoConnection = (req, res, next) => {
