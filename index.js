@@ -112,8 +112,8 @@ app.use((err, req, res, next) => {
   }
 });
 
-// MongoDB Connection with retry logic
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://affworldtechnologies:wMbiyR0ZM8JWfOYl@loc.6qmwn3p.mongodb.net/hypgymdubaiii';
+// MongoDB Connection
+const MONGODB_URI = 'mongodb+srv://affworldtechnologies:wMbiyR0ZM8JWfOYl@loc.6qmwn3p.mongodb.net/hypgymdubaiii';
 
 // Simple MongoDB connection
 mongoose.connect(MONGODB_URI, {
