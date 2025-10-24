@@ -116,44 +116,58 @@ app.use((err, req, res, next) => {
 const MONGODB_URI = 'mongodb+srv://affworldtechnologies:wMbiyR0ZM8JWfOYl@loc.6qmwn3p.mongodb.net/hypgymdubaiii';
 
 mongoose.connect(MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
   serverSelectionTimeoutMS: 5000, // Keep trying to send operations for 5 seconds
   socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
   bufferCommands: false, // Disable mongoose buffering
+  maxPoolSize: 10, // Maintain up to 10 socket connections
+  retryWrites: true,
+  w: 'majority'
 })
 .then(() => {
   console.log('✅ MongoDB Connected Successfully');
 })
 .catch((error) => {
   console.error('❌ MongoDB Connection Error:', error);
+  console.error('Connection string:', MONGODB_URI.replace(/\/\/.*@/, '//***:***@')); // Hide credentials in logs
   // Don't exit process, let the app continue
 });
 
+// MongoDB connection check middleware
+const checkMongoConnection = (req, res, next) => {
+  if (mongoose.connection.readyState !== 1) {
+    return res.status(503).json({
+      success: false,
+      message: 'Database connection unavailable. Please try again later.',
+      error: 'MongoDB not connected'
+    });
+  }
+  next();
+};
+
 // Routes
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/members', require('./routes/members'));
-app.use('/api/memberships', require('./routes/memberships'));
-app.use('/api/payments', require('./routes/payments'));
-app.use('/api/admin', require('./routes/admin'));
-app.use('/api/dashboard', require('./routes/dashboard'));
-app.use('/api/trainers', require('./routes/trainers'));
-app.use('/api/staff', require('./routes/staff'));
-app.use('/api/equipment', require('./routes/equipment'));
-app.use('/api/classes', require('./routes/classes'));
-app.use('/api/notifications', require('./routes/notifications'));
-app.use('/api/checkin', require('./routes/checkin'));
-app.use('/api/bookings', require('./routes/bookings'));
-app.use('/api/sessions', require('./routes/sessions'));
-app.use('/api/exercises', require('./routes/exercises'));
-app.use('/api/programmes', require('./routes/programmes'));
-app.use('/api/training-sessions', require('./routes/training-sessions'));
-app.use('/api/calendar', require('./routes/calendar'));
-app.use('/api/attendance', require('./routes/attendance'));
-app.use('/api/smtp', require('./routes/smtp'));
-app.use('/api/profile', require('./routes/profile'));
-app.use('/api/personal', require('./routes/personal'));
-app.use('/api/system', require('./routes/system'));
+app.use('/api/auth', checkMongoConnection, require('./routes/auth'));
+app.use('/api/members', checkMongoConnection, require('./routes/members'));
+app.use('/api/memberships', checkMongoConnection, require('./routes/memberships'));
+app.use('/api/payments', checkMongoConnection, require('./routes/payments'));
+app.use('/api/admin', checkMongoConnection, require('./routes/admin'));
+app.use('/api/dashboard', checkMongoConnection, require('./routes/dashboard'));
+app.use('/api/trainers', checkMongoConnection, require('./routes/trainers'));
+app.use('/api/staff', checkMongoConnection, require('./routes/staff'));
+app.use('/api/equipment', checkMongoConnection, require('./routes/equipment'));
+app.use('/api/classes', checkMongoConnection, require('./routes/classes'));
+app.use('/api/notifications', checkMongoConnection, require('./routes/notifications'));
+app.use('/api/checkin', checkMongoConnection, require('./routes/checkin'));
+app.use('/api/bookings', checkMongoConnection, require('./routes/bookings'));
+app.use('/api/sessions', checkMongoConnection, require('./routes/sessions'));
+app.use('/api/exercises', checkMongoConnection, require('./routes/exercises'));
+app.use('/api/programmes', checkMongoConnection, require('./routes/programmes'));
+app.use('/api/training-sessions', checkMongoConnection, require('./routes/training-sessions'));
+app.use('/api/calendar', checkMongoConnection, require('./routes/calendar'));
+app.use('/api/attendance', checkMongoConnection, require('./routes/attendance'));
+app.use('/api/smtp', checkMongoConnection, require('./routes/smtp'));
+app.use('/api/profile', checkMongoConnection, require('./routes/profile'));
+app.use('/api/personal', checkMongoConnection, require('./routes/personal'));
+app.use('/api/system', checkMongoConnection, require('./routes/system'));
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
