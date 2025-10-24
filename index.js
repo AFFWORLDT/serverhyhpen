@@ -115,37 +115,54 @@ app.use((err, req, res, next) => {
 // MongoDB Connection with retry logic
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://affworldtechnologies:wMbiyR0ZM8JWfOYl@loc.6qmwn3p.mongodb.net/hypgymdubaiii';
 
-const connectWithRetry = () => {
-  mongoose.connect(MONGODB_URI, {
-    serverSelectionTimeoutMS: 10000, // Increased timeout
-    socketTimeoutMS: 45000,
-    bufferCommands: false,
-    maxPoolSize: 10,
-    retryWrites: true,
-    w: 'majority',
-    connectTimeoutMS: 10000,
-    heartbeatFrequencyMS: 10000
-  })
-  .then(() => {
-    console.log('✅ MongoDB Connected Successfully');
-  })
-  .catch((error) => {
-    console.error('❌ MongoDB Connection Error:', error.message);
-    console.error('Connection string:', MONGODB_URI.replace(/\/\/.*@/, '//***:***@'));
-    console.log('🔄 Retrying MongoDB connection in 5 seconds...');
-    setTimeout(connectWithRetry, 5000);
-  });
-};
+// Simple MongoDB connection
+mongoose.connect(MONGODB_URI, {
+  serverSelectionTimeoutMS: 10000,
+  socketTimeoutMS: 45000,
+  bufferCommands: false,
+  maxPoolSize: 1,
+  retryWrites: true,
+  w: 'majority',
+  connectTimeoutMS: 10000,
+  heartbeatFrequencyMS: 10000,
+  maxIdleTimeMS: 30000
+})
+.then(() => {
+  console.log('✅ MongoDB Connected Successfully');
+  console.log('Connection state:', mongoose.connection.readyState);
+})
+.catch((error) => {
+  console.error('❌ MongoDB Connection Error:', error.message);
+  console.error('Error code:', error.code);
+  console.error('Error name:', error.name);
+  console.error('Connection string:', MONGODB_URI.replace(/\/\/.*@/, '//***:***@'));
+});
 
-connectWithRetry();
+// MongoDB connection event handlers
+mongoose.connection.on('connected', () => {
+  console.log('🔗 Mongoose connected to MongoDB');
+});
+
+mongoose.connection.on('error', (err) => {
+  console.error('❌ Mongoose connection error:', err);
+});
+
+mongoose.connection.on('disconnected', () => {
+  console.log('🔌 Mongoose disconnected from MongoDB');
+});
 
 // MongoDB connection check middleware
 const checkMongoConnection = (req, res, next) => {
-  if (mongoose.connection.readyState !== 1) {
+  const connectionState = mongoose.connection.readyState;
+  console.log('MongoDB connection state:', connectionState);
+  
+  if (connectionState !== 1) {
+    console.log('MongoDB not connected, state:', connectionState);
     return res.status(503).json({
       success: false,
       message: 'Database connection unavailable. Please try again later.',
-      error: 'MongoDB not connected'
+      error: 'MongoDB not connected',
+      connectionState: connectionState
     });
   }
   next();
