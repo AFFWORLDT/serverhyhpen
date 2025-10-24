@@ -147,11 +147,13 @@ app.use('/api/bookings', require('./routes/bookings'));
 app.use('/api/sessions', require('./routes/sessions'));
 app.use('/api/exercises', require('./routes/exercises'));
 app.use('/api/programmes', require('./routes/programmes'));
-app.use('/api/clients', require('./routes/clients'));
 app.use('/api/training-sessions', require('./routes/training-sessions'));
 app.use('/api/calendar', require('./routes/calendar'));
 app.use('/api/attendance', require('./routes/attendance'));
 app.use('/api/smtp', require('./routes/smtp'));
+app.use('/api/profile', require('./routes/profile'));
+app.use('/api/personal', require('./routes/personal'));
+app.use('/api/system', require('./routes/system'));
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

@@ -116,6 +116,59 @@ const userSchema = new mongoose.Schema({
     trim: true
   },
   
+  // Member/Client specific fields
+  assignedProgramme: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Programme',
+    default: null
+  },
+  programmeStartDate: {
+    type: Date,
+    default: null
+  },
+  programmeEndDate: {
+    type: Date,
+    default: null
+  },
+  assignedTrainer: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  fitnessGoals: [{
+    type: String,
+    trim: true
+  }],
+  fitnessLevel: {
+    type: String,
+    enum: ['Beginner', 'Intermediate', 'Advanced'],
+    default: 'Beginner'
+  },
+  medicalConditions: [{
+    type: String,
+    trim: true
+  }],
+  allergies: [{
+    type: String,
+    trim: true
+  }],
+  currentWeight: {
+    type: Number,
+    default: null
+  },
+  targetWeight: {
+    type: Number,
+    default: null
+  },
+  height: {
+    type: Number,
+    default: null
+  },
+  memberNotes: {
+    type: String,
+    default: ''
+  },
+  
   createdAt: {
     type: Date,
     default: Date.now

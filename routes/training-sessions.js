@@ -2,7 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const { body, validationResult } = require('express-validator');
 const TrainingSession = require('../models/TrainingSession');
-const Client = require('../models/Client');
+const User = require('../models/User');
 const Programme = require('../models/Programme');
 const { auth, adminOrTrainerAuth } = require('../middleware/auth');
 
@@ -15,7 +15,7 @@ router.get('/', auth, adminOrTrainerAuth, async (req, res) => {
     const limit = parseInt(req.query.limit) || 20;
     const skip = (page - 1) * limit;
     
-    const { client, trainer, programme, status, start_date, end_date } = req.query;
+    const { member, trainer, programme, status, start_date, end_date } = req.query;
     
     // Build filter object
     const filter = {};
@@ -27,8 +27,8 @@ router.get('/', auth, adminOrTrainerAuth, async (req, res) => {
       filter.trainer = trainer;
     }
     
-    if (client) {
-      filter.client = client;
+    if (member) {
+      filter.member = member;
     }
     
     if (programme) {
@@ -50,7 +50,7 @@ router.get('/', auth, adminOrTrainerAuth, async (req, res) => {
     }
     
     const sessions = await TrainingSession.find(filter)
-      .populate('client', 'name email phone')
+      .populate('member', 'name email phone')
       .populate('trainer', 'firstName lastName email')
       .populate('programme', 'name description')
       .sort({ session_start_time: -1 })
@@ -93,7 +93,7 @@ router.get('/:id', auth, adminOrTrainerAuth, async (req, res) => {
     }
     
     const session = await TrainingSession.findById(id)
-      .populate('client', 'name email phone')
+      .populate('member', 'name email phone')
       .populate('trainer', 'firstName lastName email')
       .populate('programme', 'name description')
       .populate('exercises_completed.exercise', 'name description muscle_group');
@@ -129,7 +129,7 @@ router.get('/:id', auth, adminOrTrainerAuth, async (req, res) => {
 
 // Create new training session (Trainer only)
 router.post('/', auth, adminOrTrainerAuth, [
-  body('client').isMongoId().withMessage('Invalid client ID'),
+  body('member').isMongoId().withMessage('Invalid member ID'),
   body('programme').isMongoId().withMessage('Invalid programme ID'),
   body('session_start_time').isISO8601().withMessage('Please provide a valid session start time')
 ], async (req, res) => {
@@ -145,15 +145,15 @@ router.post('/', auth, adminOrTrainerAuth, [
     }
     
     const {
-      client,
+      member,
       programme,
       session_start_time,
       remarks
     } = req.body;
     
-    // Validate client exists and belongs to trainer
-    const clientDoc = await Client.findById(client);
-    if (!clientDoc) {
+    // Validate member exists and belongs to trainer
+    const memberDoc = await Client.findById(member);
+    if (!memberDoc) {
       return res.status(404).json({
         success: false,
         message: 'Client not found'
@@ -161,13 +161,13 @@ router.post('/', auth, adminOrTrainerAuth, [
     }
     
     console.log('Debug - Trainer ID from token:', req.user.userId);
-    console.log('Debug - Client trainer ID:', clientDoc.trainer.toString());
+    console.log('Debug - Client trainer ID:', memberDoc.trainer.toString());
     console.log('Debug - User role:', req.user.role);
     
-    if (req.user.role === 'trainer' && clientDoc.trainer.toString() !== req.user.userId) {
+    if (req.user.role === 'trainer' && memberDoc.trainer.toString() !== req.user.userId) {
       return res.status(403).json({
         success: false,
-        message: 'You can only create sessions for your own clients'
+        message: 'You can only create sessions for your own members'
       });
     }
     
@@ -181,7 +181,7 @@ router.post('/', auth, adminOrTrainerAuth, [
     }
     
     const session = new TrainingSession({
-      client,
+      member,
       trainer: req.user.userId,
       programme,
       session_start_time: new Date(session_start_time),
@@ -193,7 +193,7 @@ router.post('/', auth, adminOrTrainerAuth, [
     
     // Populate the created session
     await session.populate([
-      { path: 'client', select: 'name email phone' },
+      { path: 'member', select: 'name email phone' },
       { path: 'trainer', select: 'firstName lastName email' },
       { path: 'programme', select: 'name description' }
     ]);
@@ -262,7 +262,7 @@ router.put('/:id', auth, adminOrTrainerAuth, [
       { $set: req.body },
       { new: true, runValidators: true }
     ).populate([
-      { path: 'client', select: 'name email phone' },
+      { path: 'member', select: 'name email phone' },
       { path: 'trainer', select: 'firstName lastName email' },
       { path: 'programme', select: 'name description' }
     ]);
@@ -338,7 +338,7 @@ router.post('/:id/complete', auth, adminOrTrainerAuth, [
     
     // Populate the completed session
     await session.populate([
-      { path: 'client', select: 'name email phone' },
+      { path: 'member', select: 'name email phone' },
       { path: 'trainer', select: 'firstName lastName email' },
       { path: 'programme', select: 'name description' }
     ]);
@@ -455,7 +455,7 @@ router.get('/trainer/:trainerId', auth, adminOrTrainerAuth, async (req, res) => 
     }
     
     const sessions = await TrainingSession.find(filter)
-      .populate('client', 'name email phone')
+      .populate('member', 'name email phone')
       .populate('trainer', 'firstName lastName email')
       .populate('programme', 'name description')
       .sort({ session_start_time: -1 });
@@ -474,37 +474,37 @@ router.get('/trainer/:trainerId', auth, adminOrTrainerAuth, async (req, res) => 
   }
 });
 
-// Get sessions by client
-router.get('/client/:clientId', auth, adminOrTrainerAuth, async (req, res) => {
+// Get sessions by member
+router.get('/member/:memberId', auth, adminOrTrainerAuth, async (req, res) => {
   try {
-    const { clientId } = req.params;
+    const { memberId } = req.params;
     const { status, start_date, end_date } = req.query;
     
-    if (!mongoose.Types.ObjectId.isValid(clientId)) {
+    if (!mongoose.Types.ObjectId.isValid(memberId)) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid client ID format'
+        message: 'Invalid member ID format'
       });
     }
     
-    const client = await Client.findById(clientId);
+    const member = await Client.findById(memberId);
     
-    if (!client) {
+    if (!member) {
       return res.status(404).json({
         success: false,
         message: 'Client not found'
       });
     }
     
-    // Check if user can view this client's sessions
-    if (req.user.role === 'trainer' && client.trainer.toString() !== req.user.userId) {
+    // Check if user can view this member's sessions
+    if (req.user.role === 'trainer' && member.trainer.toString() !== req.user.userId) {
       return res.status(403).json({
         success: false,
-        message: 'You can only view your own clients\' sessions'
+        message: 'You can only view your own members\' sessions'
       });
     }
     
-    const filter = { client: clientId };
+    const filter = { member: memberId };
     
     if (status) {
       filter.status = status;
@@ -521,7 +521,7 @@ router.get('/client/:clientId', auth, adminOrTrainerAuth, async (req, res) => {
     }
     
     const sessions = await TrainingSession.find(filter)
-      .populate('client', 'name email phone')
+      .populate('member', 'name email phone')
       .populate('trainer', 'firstName lastName email')
       .populate('programme', 'name description')
       .sort({ session_start_time: -1 });
@@ -531,10 +531,10 @@ router.get('/client/:clientId', auth, adminOrTrainerAuth, async (req, res) => {
       data: { sessions }
     });
   } catch (error) {
-    console.error('Error fetching client sessions:', error);
+    console.error('Error fetching member sessions:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to fetch client sessions',
+      message: 'Failed to fetch member sessions',
       error: error.message
     });
   }

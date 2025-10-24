@@ -1,9 +1,9 @@
 const mongoose = require('mongoose');
 
 const trainingSessionSchema = new mongoose.Schema({
-  client: {
+  member: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Client',
+    ref: 'User',
     required: true
   },
   trainer: {
@@ -65,7 +65,7 @@ const trainingSessionSchema = new mongoose.Schema({
       default: ''
     }
   }],
-  client_feedback: {
+  member_feedback: {
     rating: {
       type: Number,
       min: 1,
@@ -90,7 +90,7 @@ const trainingSessionSchema = new mongoose.Schema({
 });
 
 // Indexes for better performance
-trainingSessionSchema.index({ client: 1 });
+trainingSessionSchema.index({ member: 1 });
 trainingSessionSchema.index({ trainer: 1 });
 trainingSessionSchema.index({ programme: 1 });
 trainingSessionSchema.index({ session_start_time: 1 });
@@ -135,4 +135,5 @@ trainingSessionSchema.post('save', async function(doc) {
 });
 
 module.exports = mongoose.model('TrainingSession', trainingSessionSchema);
+
 

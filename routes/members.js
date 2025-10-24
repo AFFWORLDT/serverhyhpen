@@ -3,6 +3,8 @@ const { body, validationResult } = require('express-validator');
 const mongoose = require('mongoose');
 const User = require('../models/User');
 const { Membership } = require('../models/Membership');
+const Programme = require('../models/Programme');
+const TrainingSession = require('../models/TrainingSession');
 const { auth, adminAuth, adminOrTrainerAuth } = require('../middleware/auth');
 
 const router = express.Router();
@@ -355,6 +357,269 @@ router.get('/:id/memberships', auth, adminOrTrainerAuth, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Server error while fetching member memberships'
+    });
+  }
+});
+
+// Assign programme to member (Trainer/Admin only)
+router.post('/:id/assign-programme', auth, adminOrTrainerAuth, [
+  body('programme_id').isMongoId().withMessage('Invalid programme ID'),
+  body('start_date').optional().isISO8601().withMessage('Please provide a valid start date')
+], async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { programme_id, start_date } = req.body;
+    
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid member ID format'
+      });
+    }
+    
+    const member = await User.findById(id);
+    
+    if (!member) {
+      return res.status(404).json({
+        success: false,
+        message: 'Member not found'
+      });
+    }
+    
+    // Check if user can update this member
+    if (req.user.role === 'trainer' && member.assignedTrainer?.toString() !== req.user.userId) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only update your own assigned members'
+      });
+    }
+    
+    const programme = await Programme.findById(programme_id);
+    
+    if (!programme) {
+      return res.status(404).json({
+        success: false,
+        message: 'Programme not found'
+      });
+    }
+    
+    const startDate = start_date ? new Date(start_date) : new Date();
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + (programme.duration_in_weeks * 7));
+    
+    member.assignedProgramme = programme_id;
+    member.programmeStartDate = startDate;
+    member.programmeEndDate = endDate;
+    member.assignedTrainer = req.user.userId;
+    
+    await member.save();
+    
+    await member.populate([
+      { path: 'assignedTrainer', select: 'firstName lastName email' },
+      { path: 'assignedProgramme', select: 'name description duration_in_weeks' }
+    ]);
+    
+    res.json({
+      success: true,
+      message: 'Programme assigned successfully',
+      data: { member }
+    });
+  } catch (error) {
+    console.error('Error assigning programme:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to assign programme',
+      error: error.message
+    });
+  }
+});
+
+// Get member sessions
+router.get('/:id/sessions', auth, adminOrTrainerAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, start_date, end_date } = req.query;
+    
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid member ID format'
+      });
+    }
+    
+    const member = await User.findById(id);
+    
+    if (!member) {
+      return res.status(404).json({
+        success: false,
+        message: 'Member not found'
+      });
+    }
+    
+    // Check if user can view this member's sessions
+    if (req.user.role === 'trainer' && member.assignedTrainer?.toString() !== req.user.userId) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only view your own assigned members\' sessions'
+      });
+    }
+    
+    const filter = { member: id };
+    
+    if (status) {
+      filter.status = status;
+    }
+    
+    if (start_date || end_date) {
+      filter.session_start_time = {};
+      if (start_date) {
+        filter.session_start_time.$gte = new Date(start_date);
+      }
+      if (end_date) {
+        filter.session_start_time.$lte = new Date(end_date);
+      }
+    }
+    
+    const sessions = await TrainingSession.find(filter)
+      .populate('trainer', 'firstName lastName email')
+      .populate('programme', 'name description')
+      .sort({ session_start_time: -1 });
+    
+    res.json({
+      success: true,
+      data: { sessions }
+    });
+  } catch (error) {
+    console.error('Error fetching member sessions:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch member sessions',
+      error: error.message
+    });
+  }
+});
+
+// Get member statistics
+router.get('/:id/stats', auth, adminOrTrainerAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid member ID format'
+      });
+    }
+    
+    const member = await User.findById(id);
+    
+    if (!member) {
+      return res.status(404).json({
+        success: false,
+        message: 'Member not found'
+      });
+    }
+    
+    // Check if user can view this member's stats
+    if (req.user.role === 'trainer' && member.assignedTrainer?.toString() !== req.user.userId) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only view your own assigned members\' statistics'
+      });
+    }
+    
+    const totalSessions = await TrainingSession.countDocuments({ member: id });
+    const completedSessions = await TrainingSession.countDocuments({ 
+      member: id, 
+      status: 'completed' 
+    });
+    const averageRating = await TrainingSession.aggregate([
+      { $match: { member: mongoose.Types.ObjectId(id), status: 'completed', live_rating: { $exists: true } } },
+      { $group: { _id: null, avgRating: { $avg: '$live_rating' } } }
+    ]);
+    
+    const recentSessions = await TrainingSession.find({ member: id })
+      .populate('trainer', 'firstName lastName')
+      .populate('programme', 'name')
+      .sort({ session_start_time: -1 })
+      .limit(5);
+    
+    res.json({
+      success: true,
+      data: {
+        totalSessions,
+        completedSessions,
+        averageRating: averageRating.length > 0 ? Math.round(averageRating[0].avgRating * 10) / 10 : 0,
+        recentSessions
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching member stats:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch member statistics',
+      error: error.message
+    });
+  }
+});
+
+// Get member statistics overview
+router.get('/stats/overview', auth, adminOrTrainerAuth, async (req, res) => {
+  try {
+    const filter = {};
+    if (req.user.role === 'trainer') {
+      filter.assignedTrainer = req.user.userId;
+    }
+    
+    const totalMembers = await User.countDocuments({ ...filter, role: 'member', isActive: true });
+    
+    const fitnessLevelStats = await User.aggregate([
+      { $match: { ...filter, role: 'member', isActive: true } },
+      { $group: { _id: '$fitnessLevel', count: { $sum: 1 } } },
+      { $sort: { count: -1 } }
+    ]);
+    
+    const programmeStats = await User.aggregate([
+      { $match: { ...filter, role: 'member', isActive: true } },
+      { $group: { 
+        _id: { $ifNull: ['$assignedProgramme', 'unassigned'] }, 
+        count: { $sum: 1 } 
+      }},
+      { $sort: { count: -1 } }
+    ]);
+    
+    const trainerStats = await User.aggregate([
+      { $match: { ...filter, role: 'member', isActive: true } },
+      { $group: { _id: '$assignedTrainer', count: { $sum: 1 } } },
+      { $lookup: {
+        from: 'users',
+        localField: '_id',
+        foreignField: '_id',
+        as: 'trainer'
+      }},
+      { $unwind: '$trainer' },
+      { $project: {
+        trainerName: { $concat: ['$trainer.firstName', ' ', '$trainer.lastName'] },
+        count: 1
+      }},
+      { $sort: { count: -1 } }
+    ]);
+    
+    res.json({
+      success: true,
+      data: {
+        totalMembers,
+        fitnessLevelStats,
+        programmeStats,
+        trainerStats
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching member stats:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch member statistics',
+      error: error.message
     });
   }
 });
