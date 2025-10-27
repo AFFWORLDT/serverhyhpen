@@ -26,7 +26,7 @@ const PORT = process.env.PORT || 5001;
 // Middleware
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
+    // Always allow requests with no origin (like mobile apps, curl, or native apps)
     if (!origin) return callback(null, true);
     
     const allowedOrigins = [
@@ -45,13 +45,15 @@ app.use(cors({
         origin.includes('.vercel.app') || 
         origin.includes('localhost') ||
         origin.includes('127.0.0.1') ||
-        origin.startsWith('expo://') ||
+        origin.includes('expo') ||
+        origin.includes('exp://') ||
         origin.includes('exp://')) {
-      callback(null, true);
-    } else {
-      console.log('CORS blocked origin:', origin);
-      callback(new Error('Not allowed by CORS'));
+      return callback(null, true);
     }
+    
+    // For mobile apps or other unknown origins, allow them anyway
+    console.log('Allowing origin:', origin);
+    return callback(null, true);
   },
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
   credentials: true,
