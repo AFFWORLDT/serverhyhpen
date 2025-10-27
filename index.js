@@ -95,30 +95,40 @@ app.use((req, res, next) => {
 });
 
 // MongoDB Connection
-const MONGODB_URI = 'mongodb+srv://affworldtechnologies:wMbiyR0ZM8JWfOYl@loc.6qmwn3p.mongodb.net/hypgymdubaiii';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://affworldtechnologies:wMbiyR0ZM8JWfOYl@loc.6qmwn3p.mongodb.net/hypgymdubaiii';
 
-// Simple MongoDB connection
-mongoose.connect(MONGODB_URI, {
-  serverSelectionTimeoutMS: 10000,
-  socketTimeoutMS: 45000,
-  bufferCommands: false,
-  maxPoolSize: 1,
-  retryWrites: true,
-  w: 'majority',
-  connectTimeoutMS: 10000,
-  heartbeatFrequencyMS: 10000,
-  maxIdleTimeMS: 30000
-})
-.then(() => {
-  console.log('✅ MongoDB Connected Successfully');
-  console.log('Connection state:', mongoose.connection.readyState);
-})
-.catch((error) => {
-  console.error('❌ MongoDB Connection Error:', error.message);
-  console.error('Error code:', error.code);
-  console.error('Error name:', error.name);
-  console.error('Connection string:', MONGODB_URI.replace(/\/\/.*@/, '//***:***@'));
-});
+// Enhanced MongoDB connection with retry logic
+const connectWithRetry = () => {
+  mongoose.connect(MONGODB_URI, {
+    serverSelectionTimeoutMS: 30000, // Increased for online environments
+    socketTimeoutMS: 45000,
+    bufferCommands: false,
+    maxPoolSize: 10, // Increased pool size
+    minPoolSize: 2,
+    retryWrites: true,
+    w: 'majority',
+    connectTimeoutMS: 30000,
+    heartbeatFrequencyMS: 30000,
+    maxIdleTimeMS: 300000, // 5 minutes
+    useNewUrlParser: true,
+    useUnifiedTopology: true
+  })
+  .then(() => {
+    console.log('✅ MongoDB Connected Successfully');
+    console.log('Connection state:', mongoose.connection.readyState);
+    console.log('MongoDB URI:', MONGODB_URI.replace(/\/\/.*@/, '//***:***@'));
+  })
+  .catch((error) => {
+    console.error('❌ MongoDB Connection Error:', error.message);
+    console.error('Error code:', error.code);
+    console.error('Error name:', error.name);
+    console.error('Retrying connection in 5 seconds...');
+    setTimeout(connectWithRetry, 5000);
+  });
+};
+
+// Initial connection attempt
+connectWithRetry();
 
 // MongoDB connection event handlers
 mongoose.connection.on('connected', () => {
@@ -127,10 +137,26 @@ mongoose.connection.on('connected', () => {
 
 mongoose.connection.on('error', (err) => {
   console.error('❌ Mongoose connection error:', err);
+  // Retry connection after error
+  setTimeout(() => {
+    if (mongoose.connection.readyState === 0) {
+      console.log('Retrying MongoDB connection...');
+      connectWithRetry();
+    }
+  }, 5000);
 });
 
 mongoose.connection.on('disconnected', () => {
   console.log('🔌 Mongoose disconnected from MongoDB');
+  // Attempt to reconnect
+  setTimeout(() => {
+    console.log('Attempting to reconnect to MongoDB...');
+    connectWithRetry();
+  }, 5000);
+});
+
+mongoose.connection.on('reconnected', () => {
+  console.log('✅ MongoDB reconnected successfully');
 });
 
 // MongoDB connection check middleware
