@@ -351,4 +351,5 @@ server.listen(PORT, () => {
   console.log(`🌐 Health check: http://localhost:${PORT}/api/health`);
   console.log(`🔌 WebSocket server running on port ${PORT}`);
   console.log(`🔗 MongoDB URI: ${MONGODB_URI.replace(/\/\/.*@/, '//***:***@')}`);
+  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
 });
