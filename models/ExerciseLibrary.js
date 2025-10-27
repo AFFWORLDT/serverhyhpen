@@ -60,3 +60,5 @@ exerciseLibrarySchema.index({ name: 'text', description: 'text' });
 module.exports = mongoose.model('ExerciseLibrary', exerciseLibrarySchema);
 
 
+
+

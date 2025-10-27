@@ -65,6 +65,147 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
+// Get exercise statistics overview (Admin/Trainer only)
+router.get('/stats/overview', auth, adminOrTrainerAuth, async (req, res) => {
+  try {
+    const totalExercises = await ExerciseLibrary.countDocuments({ isActive: true });
+    
+    const muscleGroupStats = await ExerciseLibrary.aggregate([
+      { $match: { isActive: true } },
+      { $group: { _id: '$muscle_group', count: { $sum: 1 } } },
+      { $sort: { count: -1 } }
+    ]);
+    
+    const difficultyStats = await ExerciseLibrary.aggregate([
+      { $match: { isActive: true } },
+      { $group: { _id: '$difficulty_level', count: { $sum: 1 } } },
+      { $sort: { count: -1 } }
+    ]);
+    
+    const equipmentStats = await ExerciseLibrary.aggregate([
+      { $match: { isActive: true } },
+      { $group: { _id: '$equipment_required', count: { $sum: 1 } } }
+    ]);
+    
+    res.json({
+      success: true,
+      data: {
+        totalExercises,
+        muscleGroupStats,
+        difficultyStats,
+        equipmentStats
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching exercise stats:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch exercise statistics',
+      error: error.message
+    });
+  }
+});
+
+// Get exercise statistics
+router.get('/stats', auth, async (req, res) => {
+  try {
+    const totalExercises = await ExerciseLibrary.countDocuments({ isActive: true });
+    
+    const muscleGroupStats = await ExerciseLibrary.aggregate([
+      { $match: { isActive: true } },
+      { $group: { _id: '$muscle_group', count: { $sum: 1 } } },
+      { $sort: { count: -1 } }
+    ]);
+    
+    const difficultyStats = await ExerciseLibrary.aggregate([
+      { $match: { isActive: true } },
+      { $group: { _id: '$difficulty_level', count: { $sum: 1 } } },
+      { $sort: { count: -1 } }
+    ]);
+    
+    const equipmentStats = await ExerciseLibrary.aggregate([
+      { $match: { isActive: true } },
+      { $group: { _id: '$equipment_required', count: { $sum: 1 } } }
+    ]);
+    
+    res.json({
+      success: true,
+      data: {
+        totalExercises,
+        byMuscleGroup: muscleGroupStats.reduce((acc, stat) => {
+          acc[stat._id] = stat.count;
+          return acc;
+        }, {}),
+        byDifficulty: difficultyStats.reduce((acc, stat) => {
+          acc[stat._id] = stat.count;
+          return acc;
+        }, {}),
+        byEquipment: equipmentStats.reduce((acc, stat) => {
+          acc[stat._id] = stat.count;
+          return acc;
+        }, {})
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching exercise stats:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch exercise statistics',
+      error: error.message
+    });
+  }
+});
+
+// Get exercise statistics
+router.get('/stats', auth, async (req, res) => {
+  try {
+    const totalExercises = await ExerciseLibrary.countDocuments({ isActive: true });
+    
+    const muscleGroupStats = await ExerciseLibrary.aggregate([
+      { $match: { isActive: true } },
+      { $group: { _id: '$muscle_group', count: { $sum: 1 } } },
+      { $sort: { count: -1 } }
+    ]);
+    
+    const difficultyStats = await ExerciseLibrary.aggregate([
+      { $match: { isActive: true } },
+      { $group: { _id: '$difficulty_level', count: { $sum: 1 } } },
+      { $sort: { count: -1 } }
+    ]);
+    
+    const equipmentStats = await ExerciseLibrary.aggregate([
+      { $match: { isActive: true } },
+      { $group: { _id: '$equipment_required', count: { $sum: 1 } } }
+    ]);
+    
+    res.json({
+      success: true,
+      data: {
+        totalExercises,
+        byMuscleGroup: muscleGroupStats.reduce((acc, stat) => {
+          acc[stat._id] = stat.count;
+          return acc;
+        }, {}),
+        byDifficulty: difficultyStats.reduce((acc, stat) => {
+          acc[stat._id] = stat.count;
+          return acc;
+        }, {}),
+        byEquipment: equipmentStats.reduce((acc, stat) => {
+          acc[stat._id] = stat.count;
+          return acc;
+        }, {})
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching exercise stats:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch exercise statistics',
+      error: error.message
+    });
+  }
+});
+
 // Get exercise by ID
 router.get('/:id', auth, async (req, res) => {
   try {
@@ -263,94 +404,4 @@ router.delete('/:id', auth, adminAuth, async (req, res) => {
   }
 });
 
-// Get exercise statistics
-router.get('/stats/overview', auth, adminOrTrainerAuth, async (req, res) => {
-  try {
-    const totalExercises = await ExerciseLibrary.countDocuments({ isActive: true });
-    
-    const muscleGroupStats = await ExerciseLibrary.aggregate([
-      { $match: { isActive: true } },
-      { $group: { _id: '$muscle_group', count: { $sum: 1 } } },
-      { $sort: { count: -1 } }
-    ]);
-    
-    const difficultyStats = await ExerciseLibrary.aggregate([
-      { $match: { isActive: true } },
-      { $group: { _id: '$difficulty_level', count: { $sum: 1 } } },
-      { $sort: { count: -1 } }
-    ]);
-    
-    const equipmentStats = await ExerciseLibrary.aggregate([
-      { $match: { isActive: true } },
-      { $group: { _id: '$equipment_required', count: { $sum: 1 } } }
-    ]);
-    
-    res.json({
-      success: true,
-      data: {
-        totalExercises,
-        muscleGroupStats,
-        difficultyStats,
-        equipmentStats
-      }
-    });
-  } catch (error) {
-    console.error('Error fetching exercise stats:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch exercise statistics',
-      error: error.message
-    });
-  }
-});
-
-// Get exercise statistics
-router.get('/stats', auth, async (req, res) => {
-  try {
-    const totalExercises = await ExerciseLibrary.countDocuments({ isActive: true });
-    
-    const muscleGroupStats = await ExerciseLibrary.aggregate([
-      { $match: { isActive: true } },
-      { $group: { _id: '$muscle_group', count: { $sum: 1 } } },
-      { $sort: { count: -1 } }
-    ]);
-    
-    const difficultyStats = await ExerciseLibrary.aggregate([
-      { $match: { isActive: true } },
-      { $group: { _id: '$difficulty_level', count: { $sum: 1 } } },
-      { $sort: { count: -1 } }
-    ]);
-    
-    const equipmentStats = await ExerciseLibrary.aggregate([
-      { $match: { isActive: true } },
-      { $group: { _id: '$equipment_required', count: { $sum: 1 } } }
-    ]);
-    
-    res.json({
-      success: true,
-      data: {
-        totalExercises,
-        byMuscleGroup: muscleGroupStats.reduce((acc, stat) => {
-          acc[stat._id] = stat.count;
-          return acc;
-        }, {}),
-        byDifficulty: difficultyStats.reduce((acc, stat) => {
-          acc[stat._id] = stat.count;
-          return acc;
-        }, {}),
-        byEquipment: equipmentStats.reduce((acc, stat) => {
-          acc[stat._id] = stat.count;
-          return acc;
-        }, {})
-      }
-    });
-  } catch (error) {
-    console.error('Error fetching exercise stats:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch exercise statistics',
-      error: error.message
-    });
-  }
-});
 module.exports = router;

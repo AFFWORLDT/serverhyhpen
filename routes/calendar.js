@@ -41,7 +41,7 @@ router.get('/', auth, async (req, res) => {
     }
 
     // User-specific events
-    if (userId) {
+    if (userId && userId !== 'undefined') {
       query.$or = [
         { createdBy: userId },
         { assignedTo: userId }
@@ -354,11 +354,20 @@ router.delete('/:id', auth, async (req, res) => {
 router.get('/user/:userId', auth, async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
+    const { userId } = req.params;
+    
+    // Validate userId
+    if (!userId || userId === 'undefined') {
+      return res.status(400).json({
+        success: false,
+        message: 'Valid user ID is required'
+      });
+    }
     
     const query = {
       $or: [
-        { createdBy: req.params.userId },
-        { assignedTo: req.params.userId }
+        { createdBy: userId },
+        { assignedTo: userId }
       ]
     };
 

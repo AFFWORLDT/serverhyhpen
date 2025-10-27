@@ -131,7 +131,12 @@ router.post('/', auth, adminAuth, [
       });
     }
 
-    // Create new trainer
+    // Get creator info
+    const creator = await User.findById(req.user.userId);
+    const creatorName = creator ? `${creator.firstName} ${creator.lastName}` : 'System';
+    const creationMethod = req.user.role === 'admin' ? 'manual' : req.user.role === 'trainer' ? 'manual' : 'api';
+
+    // Create new trainer with creator tracking
     const trainer = new User({
       firstName,
       lastName,
@@ -147,7 +152,10 @@ router.post('/', auth, adminAuth, [
       experience,
       certification,
       hourlyRate,
-      isActive: true
+      isActive: true,
+      createdBy: req.user.userId,
+      createdByName: creatorName,
+      creationMethod: creationMethod
     });
 
     await trainer.save();
@@ -398,5 +406,7 @@ router.get('/:id/stats', auth, adminAuth, async (req, res) => {
 });
 
 module.exports = router;
+
+
 
 

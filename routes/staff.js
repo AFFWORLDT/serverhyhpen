@@ -5,7 +5,7 @@ const { auth, adminAuth } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Get all staff members
+// Get all staff members with advanced filtering
 router.get('/', auth, adminAuth, async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
@@ -13,26 +13,103 @@ router.get('/', auth, adminAuth, async (req, res) => {
     const skip = (page - 1) * limit;
     const search = req.query.search || '';
     const department = req.query.department || '';
+    const position = req.query.position || '';
+    const status = req.query.status || '';
+    const gender = req.query.gender || '';
+    const sortBy = req.query.sortBy || 'createdAt';
+    const sortOrder = req.query.sortOrder === 'asc' ? 1 : -1;
+    const minSalary = req.query.minSalary ? parseFloat(req.query.minSalary) : null;
+    const maxSalary = req.query.maxSalary ? parseFloat(req.query.maxSalary) : null;
+    const hireDateFrom = req.query.hireDateFrom || '';
+    const hireDateTo = req.query.hireDateTo || '';
+    const skills = req.query.skills ? req.query.skills.split(',') : [];
+    const performanceRating = req.query.performanceRating ? parseFloat(req.query.performanceRating) : null;
+    const createdBy = req.query.createdBy || '';
 
     let query = { role: 'staff' };
     
+    // Search functionality
     if (search) {
       query.$or = [
         { firstName: { $regex: search, $options: 'i' } },
         { lastName: { $regex: search, $options: 'i' } },
         { email: { $regex: search, $options: 'i' } },
         { phone: { $regex: search, $options: 'i' } },
-        { position: { $regex: search, $options: 'i' } }
+        { position: { $regex: search, $options: 'i' } },
+        { employeeId: { $regex: search, $options: 'i' } },
+        { department: { $regex: search, $options: 'i' } }
       ];
     }
 
+    // Filter by department
     if (department) {
       query.department = department;
     }
 
+    // Filter by position
+    if (position) {
+      query.position = position;
+    }
+
+    // Filter by status
+    if (status) {
+      if (status === 'active') {
+        query.isActive = true;
+      } else if (status === 'inactive') {
+        query.isActive = false;
+      }
+    }
+
+    // Filter by gender
+    if (gender) {
+      query.gender = gender;
+    }
+
+    // Filter by salary range
+    if (minSalary !== null || maxSalary !== null) {
+      query.salary = {};
+      if (minSalary !== null) query.salary.$gte = minSalary;
+      if (maxSalary !== null) query.salary.$lte = maxSalary;
+    }
+
+    // Filter by hire date range
+    if (hireDateFrom || hireDateTo) {
+      query.hireDate = {};
+      if (hireDateFrom) query.hireDate.$gte = new Date(hireDateFrom);
+      if (hireDateTo) query.hireDate.$lte = new Date(hireDateTo);
+    }
+
+    // Filter by skills
+    if (skills.length > 0) {
+      query.skills = { $in: skills };
+    }
+
+    // Filter by performance rating
+    if (performanceRating !== null) {
+      query.average_rating = { $gte: performanceRating };
+    }
+
+    // Filter by creator
+    if (createdBy) {
+      if (createdBy === 'System') {
+        query.createdByName = { $exists: false };
+      } else if (createdBy === 'Admin') {
+        query.createdByName = { $regex: 'Admin', $options: 'i' };
+      } else if (createdBy === 'Manual') {
+        query.creationMethod = 'manual';
+      } else {
+        query.createdByName = { $regex: createdBy, $options: 'i' };
+      }
+    }
+
+    // Build sort object
+    const sortObj = {};
+    sortObj[sortBy] = sortOrder;
+
     const staff = await User.find(query)
       .select('-password')
-      .sort({ createdAt: -1 })
+      .populate('createdBy', 'firstName lastName email')
+      .sort(sortObj)
       .skip(skip)
       .limit(limit);
 
@@ -55,6 +132,341 @@ router.get('/', auth, adminAuth, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Server error while fetching staff'
+    });
+  }
+});
+
+// Get comprehensive staff analytics
+router.get('/analytics', auth, adminAuth, async (req, res) => {
+  try {
+    const totalStaff = await User.countDocuments({ role: 'staff' });
+    const activeStaff = await User.countDocuments({ role: 'staff', isActive: true });
+    const inactiveStaff = totalStaff - activeStaff;
+    
+    // Department distribution
+    const departmentStats = await User.aggregate([
+      { $match: { role: 'staff', isActive: true } },
+      { $group: { _id: '$department', count: { $sum: 1 } } },
+      { $sort: { count: -1 } }
+    ]);
+
+    // Position distribution
+    const positionStats = await User.aggregate([
+      { $match: { role: 'staff', isActive: true } },
+      { $group: { _id: '$position', count: { $sum: 1 } } },
+      { $sort: { count: -1 } }
+    ]);
+
+    // Gender distribution
+    const genderStats = await User.aggregate([
+      { $match: { role: 'staff', isActive: true } },
+      { $group: { _id: '$gender', count: { $sum: 1 } } }
+    ]);
+
+    // Salary statistics
+    const salaryStats = await User.aggregate([
+      { $match: { role: 'staff', isActive: true, salary: { $exists: true } } },
+      {
+        $group: {
+          _id: null,
+          avgSalary: { $avg: '$salary' },
+          minSalary: { $min: '$salary' },
+          maxSalary: { $max: '$salary' },
+          totalPayroll: { $sum: '$salary' }
+        }
+      }
+    ]);
+
+    // Performance ratings
+    const performanceStats = await User.aggregate([
+      { $match: { role: 'staff', isActive: true, average_rating: { $exists: true } } },
+      {
+        $group: {
+          _id: null,
+          avgRating: { $avg: '$average_rating' },
+          minRating: { $min: '$average_rating' },
+          maxRating: { $max: '$average_rating' }
+        }
+      }
+    ]);
+
+    // Recent hires (last 6 months)
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+    
+    const recentHires = await User.countDocuments({
+      role: 'staff',
+      hireDate: { $gte: sixMonthsAgo }
+    });
+
+    // Staff turnover (last 12 months)
+    const twelveMonthsAgo = new Date();
+    twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+    
+    const turnoverStats = await User.aggregate([
+      {
+        $match: {
+          role: 'staff',
+          updatedAt: { $gte: twelveMonthsAgo },
+          isActive: false
+        }
+      },
+      {
+        $group: {
+          _id: {
+            year: { $year: '$updatedAt' },
+            month: { $month: '$updatedAt' }
+          },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { '_id.year': 1, '_id.month': 1 } }
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        overview: {
+          totalStaff,
+          activeStaff,
+          inactiveStaff,
+          recentHires,
+          retentionRate: totalStaff > 0 ? ((totalStaff - inactiveStaff) / totalStaff * 100).toFixed(1) : 0
+        },
+        departmentStats,
+        positionStats,
+        genderStats,
+        salaryStats: salaryStats[0] || { avgSalary: 0, minSalary: 0, maxSalary: 0, totalPayroll: 0 },
+        performanceStats: performanceStats[0] || { avgRating: 0, minRating: 0, maxRating: 0 },
+        turnoverStats
+      }
+    });
+
+  } catch (error) {
+    console.error('Get staff analytics error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching staff analytics'
+    });
+  }
+});
+
+// Get staff insights and trends
+router.get('/insights', auth, adminAuth, async (req, res) => {
+  try {
+    // Monthly hiring trends (last 12 months)
+    const monthlyHiringTrends = await User.aggregate([
+      {
+        $match: {
+          role: 'staff',
+          hireDate: { $exists: true }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            year: { $year: '$hireDate' },
+            month: { $month: '$hireDate' }
+          },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { '_id.year': 1, '_id.month': 1 } },
+      { $limit: 12 }
+    ]);
+
+    // Top performing departments by average rating
+    const topDepartments = await User.aggregate([
+      {
+        $match: {
+          role: 'staff',
+          isActive: true,
+          average_rating: { $exists: true, $gt: 0 }
+        }
+      },
+      {
+        $group: {
+          _id: '$department',
+          avgRating: { $avg: '$average_rating' },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { avgRating: -1 } },
+      { $limit: 5 }
+    ]);
+
+    // Salary distribution by department
+    const salaryByDepartment = await User.aggregate([
+      {
+        $match: {
+          role: 'staff',
+          isActive: true,
+          salary: { $exists: true }
+        }
+      },
+      {
+        $group: {
+          _id: '$department',
+          avgSalary: { $avg: '$salary' },
+          minSalary: { $min: '$salary' },
+          maxSalary: { $max: '$salary' },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { avgSalary: -1 } }
+    ]);
+
+    // Skills analysis
+    const skillsAnalysis = await User.aggregate([
+      {
+        $match: {
+          role: 'staff',
+          isActive: true,
+          skills: { $exists: true, $ne: [] }
+        }
+      },
+      { $unwind: '$skills' },
+      {
+        $group: {
+          _id: '$skills',
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { count: -1 } },
+      { $limit: 10 }
+    ]);
+
+    // Age distribution
+    const ageDistribution = await User.aggregate([
+      {
+        $match: {
+          role: 'staff',
+          isActive: true,
+          dateOfBirth: { $exists: true }
+        }
+      },
+      {
+        $addFields: {
+          age: {
+            $divide: [
+              { $subtract: [new Date(), '$dateOfBirth'] },
+              365 * 24 * 60 * 60 * 1000
+            ]
+          }
+        }
+      },
+      {
+        $bucket: {
+          groupBy: '$age',
+          boundaries: [0, 25, 30, 35, 40, 45, 50, 55, 60, 100],
+          default: '60+',
+          output: {
+            count: { $sum: 1 }
+          }
+        }
+      }
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        monthlyHiringTrends,
+        topDepartments,
+        salaryByDepartment,
+        skillsAnalysis,
+        ageDistribution
+      }
+    });
+
+  } catch (error) {
+    console.error('Get staff insights error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching staff insights'
+    });
+  }
+});
+
+// Get staff performance metrics
+router.get('/performance', auth, adminAuth, async (req, res) => {
+  try {
+    const staffId = req.query.staffId;
+    
+    if (staffId) {
+      // Individual staff performance
+      const staffMember = await User.findById(staffId).select('-password');
+      if (!staffMember || staffMember.role !== 'staff') {
+        return res.status(404).json({
+          success: false,
+          message: 'Staff member not found'
+        });
+      }
+
+      // Calculate performance metrics
+      const performanceMetrics = {
+        currentRating: staffMember.average_rating || 0,
+        totalReviews: staffMember.total_reviews || 0,
+        lastReviewDate: staffMember.last_review_date || null,
+        goalsCompleted: staffMember.goals_completed || 0,
+        goalsTotal: staffMember.goals_total || 0,
+        trainingHours: staffMember.training_hours || 0,
+        certifications: staffMember.certifications || [],
+        achievements: staffMember.achievements || []
+      };
+
+      res.json({
+        success: true,
+        data: { performanceMetrics }
+      });
+    } else {
+      // Overall performance metrics
+      const performanceOverview = await User.aggregate([
+        {
+          $match: {
+            role: 'staff',
+            isActive: true
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            avgRating: { $avg: '$average_rating' },
+            totalReviews: { $sum: '$total_reviews' },
+            avgGoalsCompleted: { $avg: '$goals_completed' },
+            totalTrainingHours: { $sum: '$training_hours' }
+          }
+        }
+      ]);
+
+      // Top performers
+      const topPerformers = await User.find({
+        role: 'staff',
+        isActive: true,
+        average_rating: { $gte: 4.0 }
+      })
+      .select('firstName lastName department position average_rating')
+      .sort({ average_rating: -1 })
+      .limit(10);
+
+      res.json({
+        success: true,
+        data: {
+          performanceOverview: performanceOverview[0] || {
+            avgRating: 0,
+            totalReviews: 0,
+            avgGoalsCompleted: 0,
+            totalTrainingHours: 0
+          },
+          topPerformers
+        }
+      });
+    }
+
+  } catch (error) {
+    console.error('Get staff performance error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching staff performance'
     });
   }
 });
@@ -165,6 +577,10 @@ router.post('/', auth, adminAuth, [
       hireDate,
       employeeId,
       workSchedule,
+      // Creation tracking
+      createdBy: req.user.userId,
+      createdByName: `${req.user.firstName || 'Admin'} ${req.user.lastName || ''}`.trim(),
+      creationMethod: 'manual',
       isActive: true
     });
 
@@ -377,41 +793,6 @@ router.get('/department/:department', auth, adminAuth, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Server error while fetching staff by department'
-    });
-  }
-});
-
-// Get staff statistics
-router.get('/stats/overview', auth, adminAuth, async (req, res) => {
-  try {
-    const totalStaff = await User.countDocuments({ role: 'staff' });
-    const activeStaff = await User.countDocuments({ role: 'staff', isActive: true });
-    
-    const departmentStats = await User.aggregate([
-      { $match: { role: 'staff', isActive: true } },
-      { $group: { _id: '$department', count: { $sum: 1 } } }
-    ]);
-
-    const positionStats = await User.aggregate([
-      { $match: { role: 'staff', isActive: true } },
-      { $group: { _id: '$position', count: { $sum: 1 } } }
-    ]);
-
-    res.json({
-      success: true,
-      data: {
-        totalStaff,
-        activeStaff,
-        departmentStats,
-        positionStats
-      }
-    });
-
-  } catch (error) {
-    console.error('Get staff stats error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error while fetching staff statistics'
     });
   }
 });

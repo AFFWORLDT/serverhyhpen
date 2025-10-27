@@ -112,8 +112,100 @@ const userSchema = new mongoose.Schema({
     trim: true
   },
   workSchedule: {
+    startTime: String,
+    endTime: String,
+    days: [String]
+  },
+  
+  // Enhanced staff fields for analytics and management
+  skills: [{
     type: String,
     trim: true
+  }],
+  certifications: [{
+    name: String,
+    issuer: String,
+    issueDate: Date,
+    expiryDate: Date,
+    credentialId: String
+  }],
+  achievements: [{
+    title: String,
+    description: String,
+    date: Date,
+    category: String
+  }],
+  goals_completed: {
+    type: Number,
+    default: 0
+  },
+  goals_total: {
+    type: Number,
+    default: 0
+  },
+  training_hours: {
+    type: Number,
+    default: 0
+  },
+  total_reviews: {
+    type: Number,
+    default: 0
+  },
+  last_review_date: {
+    type: Date
+  },
+  performance_notes: {
+    type: String,
+    default: ''
+  },
+  manager: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  team: {
+    type: String,
+    trim: true
+  },
+  location: {
+    type: String,
+    trim: true
+  },
+  shift: {
+    type: String,
+    enum: ['morning', 'afternoon', 'evening', 'night', 'flexible'],
+    default: 'flexible'
+  },
+  contract_type: {
+    type: String,
+    enum: ['full-time', 'part-time', 'contract', 'intern', 'consultant'],
+    default: 'full-time'
+  },
+  benefits: [{
+    type: String,
+    trim: true
+  }],
+  leave_balance: {
+    annual: { type: Number, default: 21 },
+    sick: { type: Number, default: 7 },
+    personal: { type: Number, default: 3 }
+  },
+  attendance_score: {
+    type: Number,
+    default: 100,
+    min: 0,
+    max: 100
+  },
+  productivity_score: {
+    type: Number,
+    default: 0,
+    min: 0,
+    max: 100
+  },
+  customer_satisfaction_score: {
+    type: Number,
+    default: 0,
+    min: 0,
+    max: 100
   },
   
   // Member/Client specific fields
@@ -169,6 +261,79 @@ const userSchema = new mongoose.Schema({
     default: ''
   },
   
+  // KYC (Know Your Customer) fields
+  kycStatus: {
+    type: String,
+    enum: ['not_started', 'in_progress', 'pending_review', 'approved', 'rejected', 'expired'],
+    default: 'not_started'
+  },
+  kycEnabled: {
+    type: Boolean,
+    default: false
+  },
+  kycRequired: {
+    type: Boolean,
+    default: true
+  },
+  kycCompletedAt: {
+    type: Date
+  },
+  kycExpiryDate: {
+    type: Date
+  },
+  kycNotes: {
+    type: String,
+    default: ''
+  },
+  kycVerifiedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  kycVerifiedAt: {
+    type: Date
+  },
+  
+  // Membership management fields
+  membershipStatus: {
+    type: String,
+    enum: ['active', 'inactive', 'suspended', 'expired', 'cancelled'],
+    default: 'active'
+  },
+  membershipType: {
+    type: String,
+    enum: ['basic', 'premium', 'vip', 'corporate', 'student', 'senior'],
+    default: 'basic'
+  },
+  membershipStartDate: {
+    type: Date
+  },
+  membershipEndDate: {
+    type: Date
+  },
+  membershipRenewalDate: {
+    type: Date
+  },
+  membershipNotes: {
+    type: String,
+    default: ''
+  },
+  
+  // Creation tracking fields
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: false // Not required for initial admin users
+  },
+  createdByName: {
+    type: String,
+    required: false // Human-readable name of creator
+  },
+  creationMethod: {
+    type: String,
+    enum: ['manual', 'self_registration', 'import', 'api'],
+    default: 'manual'
+  },
+  
   createdAt: {
     type: Date,
     default: Date.now
@@ -179,9 +344,16 @@ const userSchema = new mongoose.Schema({
   }
 });
 
-// Hash password before saving
+// Hash password before saving (only if password is new or changed)
 userSchema.pre('save', async function(next) {
+  // Only hash the password if it's been modified (and not already hashed)
   if (!this.isModified('password')) return next();
+  
+  // Check if password is already hashed (starts with $2a$ or $2b$)
+  if (this.password && this.password.startsWith('$2')) {
+    return next();
+  }
+  
   this.password = await bcrypt.hash(this.password, 12);
   next();
 });

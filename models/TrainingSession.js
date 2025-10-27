@@ -135,5 +135,3 @@ trainingSessionSchema.post('save', async function(doc) {
 });
 
 module.exports = mongoose.model('TrainingSession', trainingSessionSchema);
-
-

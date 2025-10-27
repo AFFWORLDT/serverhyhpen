@@ -1,7 +1,7 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
-const { auth, adminAuth, adminOrTrainerAuth } = require('../middleware/auth');
+const { auth, adminAuth, adminOrTrainerAuth, adminOrTrainerOrStaffAuth } = require('../middleware/auth');
 
 // Classes Model (simplified for now)
 const Class = require('../models/Class');
@@ -9,7 +9,7 @@ const Class = require('../models/Class');
 const router = express.Router();
 
 // Get all classes
-router.get('/', auth, adminOrTrainerAuth, async (req, res) => {
+router.get('/', auth, adminOrTrainerOrStaffAuth, async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
@@ -504,5 +504,3 @@ router.get('/stats/overview', auth, adminAuth, async (req, res) => {
 });
 
 module.exports = router;
-
-

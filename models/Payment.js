@@ -5,7 +5,7 @@ const paymentSchema = new mongoose.Schema({
   membership: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Membership',
-    required: true
+    required: false
   },
   member: {
     type: mongoose.Schema.Types.ObjectId,
@@ -44,8 +44,7 @@ const paymentSchema = new mongoose.Schema({
   description: String,
   receiptNumber: {
     type: String,
-    unique: true,
-    required: true
+    required: false
   },
   notes: String,
   processedBy: {

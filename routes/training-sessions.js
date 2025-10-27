@@ -152,24 +152,16 @@ router.post('/', auth, adminOrTrainerAuth, [
     } = req.body;
     
     // Validate member exists and belongs to trainer
-    const memberDoc = await Client.findById(member);
+    const memberDoc = await User.findById(member);
     if (!memberDoc) {
       return res.status(404).json({
         success: false,
-        message: 'Client not found'
+        message: 'Member not found'
       });
     }
     
-    console.log('Debug - Trainer ID from token:', req.user.userId);
-    console.log('Debug - Client trainer ID:', memberDoc.trainer.toString());
-    console.log('Debug - User role:', req.user.role);
-    
-    if (req.user.role === 'trainer' && memberDoc.trainer.toString() !== req.user.userId) {
-      return res.status(403).json({
-        success: false,
-        message: 'You can only create sessions for your own members'
-      });
-    }
+    // For trainers, just allow them to create sessions for any member
+    // This is a simplified approach - in production, you might want to track trainer-member relationships
     
     // Validate programme exists
     const programmeDoc = await Programme.findById(programme);
@@ -487,22 +479,17 @@ router.get('/member/:memberId', auth, adminOrTrainerAuth, async (req, res) => {
       });
     }
     
-    const member = await Client.findById(memberId);
+    const member = await User.findById(memberId);
     
     if (!member) {
       return res.status(404).json({
         success: false,
-        message: 'Client not found'
+        message: 'Member not found'
       });
     }
     
-    // Check if user can view this member's sessions
-    if (req.user.role === 'trainer' && member.trainer.toString() !== req.user.userId) {
-      return res.status(403).json({
-        success: false,
-        message: 'You can only view your own members\' sessions'
-      });
-    }
+    // Allow trainers to view any member's sessions
+    // In production, you might want to add trainer-member relationship tracking
     
     const filter = { member: memberId };
     

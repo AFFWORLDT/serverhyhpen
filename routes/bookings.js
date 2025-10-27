@@ -1,20 +1,20 @@
 const express = require('express');
-const mongoose = require('mongoose');
-const { body, validationResult } = require('express-validator');
-const User = require('../models/User');
-const { Class } = require('../models/Class');
-const { auth } = require('../middleware/auth');
-
 const router = express.Router();
+const { body, validationResult } = require('express-validator');
+const { auth, adminAuth, adminOrTrainerOrStaffAuth } = require('../middleware/auth');
+const User = require('../models/User');
+const Class = require('../models/Class');
 
-// Booking Schema
+// Booking Schema (we'll add this to a separate model file)
+const mongoose = require('mongoose');
+
 const bookingSchema = new mongoose.Schema({
-  member: {
+  memberId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
   },
-  class: {
+  classId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Class',
     required: true
@@ -25,32 +25,143 @@ const bookingSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['booked', 'cancelled', 'completed', 'no_show'],
-    default: 'booked'
+    enum: ['pending', 'confirmed', 'cancelled', 'completed', 'no_show'],
+    default: 'pending'
   },
-  notes: String,
-  bookedBy: {
+  notes: {
+    type: String,
+    trim: true
+  },
+  checkedIn: {
+    type: Boolean,
+    default: false
+  },
+  checkedInAt: {
+    type: Date
+  },
+  createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
   },
-  createdAt: {
-    type: Date,
-    default: Date.now
+  cancelledAt: {
+    type: Date
   },
-  updatedAt: {
-    type: Date,
-    default: Date.now
+  cancelledBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  cancellationReason: {
+    type: String
+  }
+}, {
+  timestamps: true
+});
+
+// Add indexes for better performance
+bookingSchema.index({ memberId: 1, bookingDate: 1 });
+bookingSchema.index({ classId: 1, bookingDate: 1 });
+bookingSchema.index({ status: 1 });
+
+const Booking = mongoose.models.Booking || mongoose.model('Booking', bookingSchema);
+
+// Get all bookings
+router.get('/', auth, adminOrTrainerOrStaffAuth, async (req, res) => {
+  try {
+    const { 
+      page = 1, 
+      limit = 10, 
+      status, 
+      classId, 
+      memberId, 
+      startDate, 
+      endDate,
+      sortBy = 'createdAt',
+      sortOrder = 'desc'
+    } = req.query;
+    const skip = (page - 1) * limit;
+
+    let query = {};
+    if (status) query.status = status;
+    if (classId) query.classId = classId;
+    if (memberId) query.memberId = memberId;
+    
+    if (startDate && endDate) {
+      query.bookingDate = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate)
+      };
+    }
+
+    const sortObj = {};
+    sortObj[sortBy] = sortOrder === 'desc' ? -1 : 1;
+
+    const bookings = await Booking.find(query)
+      .populate('memberId', 'firstName lastName email phone')
+      .populate('classId', 'name instructor startTime endTime capacity')
+      .populate('createdBy', 'firstName lastName email')
+      .populate('cancelledBy', 'firstName lastName email')
+      .sort(sortObj)
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const total = await Booking.countDocuments(query);
+
+    res.json({
+      success: true,
+      data: {
+        bookings,
+        pagination: {
+          current: parseInt(page),
+          pages: Math.ceil(total / limit),
+          total
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Get bookings error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch bookings'
+    });
   }
 });
 
-const Booking = mongoose.model('Booking', bookingSchema);
+// Get single booking
+router.get('/:id', auth, adminOrTrainerOrStaffAuth, async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id)
+      .populate('memberId', 'firstName lastName email phone')
+      .populate('classId', 'name instructor startTime endTime capacity description')
+      .populate('createdBy', 'firstName lastName email')
+      .populate('cancelledBy', 'firstName lastName email');
 
-// Create booking
-router.post('/', auth, [
-  body('memberId').isMongoId().withMessage('Valid member ID required'),
-  body('classId').isMongoId().withMessage('Valid class ID required'),
-  body('bookingDate').isISO8601().withMessage('Valid booking date required')
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: 'Booking not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: { booking }
+    });
+  } catch (error) {
+    console.error('Get booking error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch booking'
+    });
+  }
+});
+
+// Create new booking
+router.post('/', auth, adminOrTrainerOrStaffAuth, [
+  body('memberId').isMongoId().withMessage('Valid member ID is required'),
+  body('classId').isMongoId().withMessage('Valid class ID is required'),
+  body('bookingDate').isISO8601().withMessage('Valid booking date is required'),
+  body('notes').optional().isLength({ max: 500 }).withMessage('Notes must be less than 500 characters')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -66,171 +177,84 @@ router.post('/', auth, [
 
     // Verify member exists
     const member = await User.findById(memberId);
-    if (!member || member.role !== 'member' || !member.isActive) {
+    if (!member || member.role !== 'member') {
       return res.status(404).json({
         success: false,
-        message: 'Member not found or inactive'
+        message: 'Member not found'
       });
     }
 
-    // Verify class exists and is active
-    const classItem = await Class.findById(classId);
-    if (!classItem || classItem.status !== 'active') {
+    // Verify class exists
+    const classData = await Class.findById(classId);
+    if (!classData) {
       return res.status(404).json({
         success: false,
-        message: 'Class not found or inactive'
+        message: 'Class not found'
       });
     }
 
-    // Check if member already booked this class
+    // Check if member already has a booking for this class on this date
     const existingBooking = await Booking.findOne({
-      member: memberId,
-      class: classId,
+      memberId,
+      classId,
       bookingDate: new Date(bookingDate),
-      status: { $in: ['booked', 'completed'] }
+      status: { $in: ['pending', 'confirmed'] }
     });
 
     if (existingBooking) {
       return res.status(400).json({
         success: false,
-        message: 'Member already booked this class'
+        message: 'Member already has a booking for this class on this date'
       });
     }
 
     // Check class capacity
     const currentBookings = await Booking.countDocuments({
-      class: classId,
+      classId,
       bookingDate: new Date(bookingDate),
-      status: { $in: ['booked', 'completed'] }
+      status: { $in: ['pending', 'confirmed'] }
     });
 
-    if (currentBookings >= classItem.maxCapacity) {
+    if (currentBookings >= classData.capacity) {
       return res.status(400).json({
         success: false,
-        message: 'Class is fully booked'
+        message: 'Class is fully booked for this date'
       });
     }
 
-    // Create booking
     const booking = new Booking({
-      member: memberId,
-      class: classId,
+      memberId,
+      classId,
       bookingDate: new Date(bookingDate),
-      notes: notes || '',
-      bookedBy: req.user.userId
+      notes,
+      createdBy: req.user.userId
     });
 
     await booking.save();
 
-    // Populate details
-    await booking.populate([
-      { path: 'member', select: 'firstName lastName email phone' },
-      { path: 'class', select: 'name type schedule maxCapacity' },
-      { path: 'bookedBy', select: 'firstName lastName' }
-    ]);
+    // Populate the response
+    await booking.populate('memberId', 'firstName lastName email phone');
+    await booking.populate('classId', 'name instructor startTime endTime capacity');
+    await booking.populate('createdBy', 'firstName lastName email');
 
-    res.json({
+    res.status(201).json({
       success: true,
       message: 'Booking created successfully',
       data: { booking }
     });
-
   } catch (error) {
     console.error('Create booking error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error while creating booking'
-    });
-  }
-});
-
-// Get all bookings
-router.get('/', auth, async (req, res) => {
-  try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const skip = (page - 1) * limit;
-    const status = req.query.status;
-    const classId = req.query.classId;
-    const memberId = req.query.memberId;
-
-    let query = {};
-    
-    if (status) {
-      query.status = status;
-    }
-    
-    if (classId) {
-      query.class = classId;
-    }
-    
-    if (memberId) {
-      query.member = memberId;
-    }
-
-    const bookings = await Booking.find(query)
-      .populate('member', 'firstName lastName email phone')
-      .populate('class', 'name type schedule maxCapacity')
-      .populate('bookedBy', 'firstName lastName')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit);
-
-    const total = await Booking.countDocuments(query);
-
-    res.json({
-      success: true,
-      data: {
-        bookings,
-        pagination: {
-          current: page,
-          pages: Math.ceil(total / limit),
-          total
-        }
-      }
-    });
-
-  } catch (error) {
-    console.error('Get bookings error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error while fetching bookings'
-    });
-  }
-});
-
-// Get booking by ID
-router.get('/:id', auth, async (req, res) => {
-  try {
-    const booking = await Booking.findById(req.params.id)
-      .populate('member', 'firstName lastName email phone')
-      .populate('class', 'name type schedule maxCapacity')
-      .populate('bookedBy', 'firstName lastName');
-
-    if (!booking) {
-      return res.status(404).json({
-        success: false,
-        message: 'Booking not found'
-      });
-    }
-
-    res.json({
-      success: true,
-      data: { booking }
-    });
-
-  } catch (error) {
-    console.error('Get booking error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error while fetching booking'
+      message: 'Failed to create booking'
     });
   }
 });
 
 // Update booking status
-router.put('/:id/status', auth, [
-  body('status').isIn(['booked', 'cancelled', 'completed', 'no_show']).withMessage('Invalid status')
+router.put('/:id/status', auth, adminOrTrainerOrStaffAuth, [
+  body('status').isIn(['pending', 'confirmed', 'cancelled', 'completed', 'no_show']).withMessage('Invalid status'),
+  body('cancellationReason').optional().isLength({ max: 200 }).withMessage('Cancellation reason must be less than 200 characters')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -242,51 +266,52 @@ router.put('/:id/status', auth, [
       });
     }
 
-    const { status, notes } = req.body;
+    const { status, cancellationReason } = req.body;
+    const updateData = { status };
 
-    const booking = await Booking.findById(req.params.id);
+    if (status === 'cancelled') {
+      updateData.cancelledAt = new Date();
+      updateData.cancelledBy = req.user.userId;
+      if (cancellationReason) {
+        updateData.cancellationReason = cancellationReason;
+      }
+    }
+
+    const booking = await Booking.findByIdAndUpdate(
+      req.params.id,
+      updateData,
+      { new: true }
+    ).populate('memberId', 'firstName lastName email phone')
+     .populate('classId', 'name instructor startTime endTime capacity')
+     .populate('createdBy', 'firstName lastName email')
+     .populate('cancelledBy', 'firstName lastName email');
+
     if (!booking) {
       return res.status(404).json({
         success: false,
         message: 'Booking not found'
       });
     }
-
-    booking.status = status;
-    if (notes) {
-      booking.notes = booking.notes + (booking.notes ? ` | ${notes}` : notes);
-    }
-    booking.updatedAt = new Date();
-
-    await booking.save();
-
-    await booking.populate([
-      { path: 'member', select: 'firstName lastName email phone' },
-      { path: 'class', select: 'name type schedule maxCapacity' },
-      { path: 'bookedBy', select: 'firstName lastName' }
-    ]);
 
     res.json({
       success: true,
       message: 'Booking status updated successfully',
       data: { booking }
     });
-
   } catch (error) {
     console.error('Update booking status error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error while updating booking status'
+      message: 'Failed to update booking status'
     });
   }
 });
 
-// Cancel booking
-router.put('/:id/cancel', auth, async (req, res) => {
+// Check-in member for booking
+router.put('/:id/checkin', auth, adminOrTrainerOrStaffAuth, async (req, res) => {
   try {
-    const { reason } = req.body;
-
     const booking = await Booking.findById(req.params.id);
+
     if (!booking) {
       return res.status(404).json({
         success: false,
@@ -294,155 +319,271 @@ router.put('/:id/cancel', auth, async (req, res) => {
       });
     }
 
-    if (booking.status === 'cancelled') {
+    if (booking.status !== 'confirmed') {
       return res.status(400).json({
         success: false,
-        message: 'Booking already cancelled'
+        message: 'Only confirmed bookings can be checked in'
       });
     }
 
-    booking.status = 'cancelled';
-    if (reason) {
-      booking.notes = booking.notes + (booking.notes ? ` | Cancelled: ${reason}` : `Cancelled: ${reason}`);
+    if (booking.checkedIn) {
+      return res.status(400).json({
+        success: false,
+        message: 'Member is already checked in'
+      });
     }
-    booking.updatedAt = new Date();
 
+    booking.checkedIn = true;
+    booking.checkedInAt = new Date();
     await booking.save();
 
-    await booking.populate([
-      { path: 'member', select: 'firstName lastName email phone' },
-      { path: 'class', select: 'name type schedule maxCapacity' },
-      { path: 'bookedBy', select: 'firstName lastName' }
+    await booking.populate('memberId', 'firstName lastName email phone');
+    await booking.populate('classId', 'name instructor startTime endTime capacity');
+
+    res.json({
+      success: true,
+      message: 'Member checked in successfully',
+      data: { booking }
+    });
+  } catch (error) {
+    console.error('Check-in booking error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to check-in member'
+    });
+  }
+});
+
+// Delete booking
+router.delete('/:id', auth, adminOrTrainerOrStaffAuth, async (req, res) => {
+  try {
+    const booking = await Booking.findByIdAndDelete(req.params.id);
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: 'Booking not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Booking deleted successfully'
+    });
+  } catch (error) {
+    console.error('Delete booking error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete booking'
+    });
+  }
+});
+
+// Get booking statistics (alias for analytics)
+router.get('/stats/overview', auth, adminOrTrainerOrStaffAuth, async (req, res) => {
+  try {
+    const totalBookings = await Booking.countDocuments();
+    const pending = await Booking.countDocuments({ status: 'pending' });
+    const confirmed = await Booking.countDocuments({ status: 'confirmed' });
+    const cancelled = await Booking.countDocuments({ status: 'cancelled' });
+    const completed = await Booking.countDocuments({ status: 'completed' });
+
+    res.json({
+      success: true,
+      data: {
+        total: totalBookings,
+        pending,
+        confirmed,
+        cancelled,
+        completed
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching booking stats:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching booking statistics',
+      error: error.message
+    });
+  }
+});
+
+// Get booking analytics
+router.get('/analytics/overview', auth, adminOrTrainerOrStaffAuth, async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    let matchQuery = {};
+
+    if (startDate && endDate) {
+      matchQuery.bookingDate = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate)
+      };
+    }
+
+    const analytics = await Booking.aggregate([
+      { $match: matchQuery },
+      {
+        $group: {
+          _id: null,
+          totalBookings: { $sum: 1 },
+          confirmedBookings: {
+            $sum: { $cond: [{ $eq: ['$status', 'confirmed'] }, 1, 0] }
+          },
+          pendingBookings: {
+            $sum: { $cond: [{ $eq: ['$status', 'pending'] }, 1, 0] }
+          },
+          cancelledBookings: {
+            $sum: { $cond: [{ $eq: ['$status', 'cancelled'] }, 1, 0] }
+          },
+          completedBookings: {
+            $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] }
+          },
+          noShowBookings: {
+            $sum: { $cond: [{ $eq: ['$status', 'no_show'] }, 1, 0] }
+          },
+          checkedInBookings: {
+            $sum: { $cond: ['$checkedIn', 1, 0] }
+          }
+        }
+      }
+    ]);
+
+    const classStats = await Booking.aggregate([
+      { $match: matchQuery },
+      {
+        $group: {
+          _id: '$classId',
+          count: { $sum: 1 },
+          confirmed: {
+            $sum: { $cond: [{ $eq: ['$status', 'confirmed'] }, 1, 0] }
+          },
+          checkedIn: {
+            $sum: { $cond: ['$checkedIn', 1, 0] }
+          }
+        }
+      },
+      {
+        $lookup: {
+          from: 'classes',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'classInfo'
+        }
+      },
+      {
+        $unwind: '$classInfo'
+      },
+      {
+        $project: {
+          className: '$classInfo.name',
+          instructor: '$classInfo.instructor',
+          count: 1,
+          confirmed: 1,
+          checkedIn: 1
+        }
+      },
+      { $sort: { count: -1 } },
+      { $limit: 10 }
+    ]);
+
+    const dailyStats = await Booking.aggregate([
+      { $match: matchQuery },
+      {
+        $group: {
+          _id: {
+            year: { $year: '$bookingDate' },
+            month: { $month: '$bookingDate' },
+            day: { $dayOfMonth: '$bookingDate' }
+          },
+          count: { $sum: 1 },
+          confirmed: {
+            $sum: { $cond: [{ $eq: ['$status', 'confirmed'] }, 1, 0] }
+          },
+          checkedIn: {
+            $sum: { $cond: ['$checkedIn', 1, 0] }
+          }
+        }
+      },
+      {
+        $project: {
+          date: {
+            $dateFromParts: {
+              year: '$_id.year',
+              month: '$_id.month',
+              day: '$_id.day'
+            }
+          },
+          count: 1,
+          confirmed: 1,
+          checkedIn: 1
+        }
+      },
+      { $sort: { date: 1 } },
+      { $limit: 30 }
     ]);
 
     res.json({
       success: true,
-      message: 'Booking cancelled successfully',
-      data: { booking }
+      data: {
+        overview: analytics[0] || {
+          totalBookings: 0,
+          confirmedBookings: 0,
+          pendingBookings: 0,
+          cancelledBookings: 0,
+          completedBookings: 0,
+          noShowBookings: 0,
+          checkedInBookings: 0
+        },
+        classStats,
+        dailyStats
+      }
     });
-
   } catch (error) {
-    console.error('Cancel booking error:', error);
+    console.error('Get booking analytics error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error while cancelling booking'
+      message: 'Failed to fetch booking analytics'
     });
   }
 });
 
 // Get member's bookings
-router.get('/member/:memberId', auth, async (req, res) => {
+router.get('/member/:memberId', auth, adminOrTrainerOrStaffAuth, async (req, res) => {
   try {
-    const { memberId } = req.params;
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    const { page = 1, limit = 10, status } = req.query;
     const skip = (page - 1) * limit;
 
-    const bookings = await Booking.find({ member: memberId })
-      .populate('member', 'firstName lastName email phone')
-      .populate('class', 'name type schedule maxCapacity')
-      .populate('bookedBy', 'firstName lastName')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit);
+    let query = { memberId: req.params.memberId };
+    if (status) query.status = status;
 
-    const total = await Booking.countDocuments({ member: memberId });
+    const bookings = await Booking.find(query)
+      .populate('classId', 'name instructor startTime endTime capacity')
+      .populate('createdBy', 'firstName lastName email')
+      .sort({ bookingDate: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const total = await Booking.countDocuments(query);
 
     res.json({
       success: true,
       data: {
         bookings,
         pagination: {
-          current: page,
+          current: parseInt(page),
           pages: Math.ceil(total / limit),
           total
         }
       }
     });
-
   } catch (error) {
     console.error('Get member bookings error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error while fetching member bookings'
-    });
-  }
-});
-
-// Get class bookings
-router.get('/class/:classId', auth, async (req, res) => {
-  try {
-    const { classId } = req.params;
-    const bookingDate = req.query.bookingDate;
-
-    let query = { class: classId };
-    
-    if (bookingDate) {
-      const date = new Date(bookingDate);
-      const startOfDay = new Date(date.setHours(0, 0, 0, 0));
-      const endOfDay = new Date(date.setHours(23, 59, 59, 999));
-      query.bookingDate = { $gte: startOfDay, $lte: endOfDay };
-    }
-
-    const bookings = await Booking.find(query)
-      .populate('member', 'firstName lastName email phone')
-      .populate('class', 'name type schedule maxCapacity')
-      .populate('bookedBy', 'firstName lastName')
-      .sort({ bookingDate: 1 });
-
-    res.json({
-      success: true,
-      data: { bookings }
-    });
-
-  } catch (error) {
-    console.error('Get class bookings error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error while fetching class bookings'
-    });
-  }
-});
-
-// Get booking stats
-router.get('/stats/overview', auth, async (req, res) => {
-  try {
-    const totalBookings = await Booking.countDocuments();
-    const activeBookings = await Booking.countDocuments({ status: 'booked' });
-    const completedBookings = await Booking.countDocuments({ status: 'completed' });
-    const cancelledBookings = await Booking.countDocuments({ status: 'cancelled' });
-
-    // Today's bookings
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
-    const todayBookings = await Booking.countDocuments({
-      bookingDate: { $gte: today, $lt: tomorrow },
-      status: 'booked'
-    });
-
-    res.json({
-      success: true,
-      data: {
-        total: totalBookings,
-        active: activeBookings,
-        completed: completedBookings,
-        cancelled: cancelledBookings,
-        today: todayBookings
-      }
-    });
-
-  } catch (error) {
-    console.error('Get booking stats error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error while fetching booking stats'
+      message: 'Failed to fetch member bookings'
     });
   }
 });
 
 module.exports = router;
-
-

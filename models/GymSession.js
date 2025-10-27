@@ -22,6 +22,14 @@ const gymSessionSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   },
+  checkedInBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  checkedOutBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
   notes: String,
   createdAt: {
     type: Date,
@@ -81,4 +89,3 @@ const GymSession = mongoose.model('GymSession', gymSessionSchema);
 const Equipment = mongoose.model('Equipment', equipmentSchema);
 
 module.exports = { GymSession, Equipment };
-

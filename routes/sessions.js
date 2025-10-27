@@ -74,6 +74,74 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
+// Get session history (must be before /:id route)
+router.get('/history', auth, async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+    
+    const { memberId, trainerId, startDate, endDate, status } = req.query;
+    
+    // Build filter object
+    const filter = {};
+    
+    if (memberId) {
+      filter.member = memberId;
+    }
+    
+    if (trainerId) {
+      filter.trainer = trainerId;
+    }
+    
+    if (status === 'active') {
+      filter.checkOutTime = null;
+    } else if (status === 'completed') {
+      filter.checkOutTime = { $ne: null };
+    }
+    
+    if (startDate || endDate) {
+      filter.checkInTime = {};
+      if (startDate) {
+        filter.checkInTime.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        filter.checkInTime.$lte = new Date(endDate);
+      }
+    }
+    
+    const sessions = await GymSession.find(filter)
+      .populate('member', 'firstName lastName email phone')
+      .populate('trainer', 'firstName lastName email')
+      .populate('checkedInBy', 'firstName lastName')
+      .populate('checkedOutBy', 'firstName lastName')
+      .sort({ checkInTime: -1 })
+      .skip(skip)
+      .limit(limit);
+    
+    const total = await GymSession.countDocuments(filter);
+    
+    res.json({
+      success: true,
+      data: {
+        sessions,
+        pagination: {
+          current: page,
+          pages: Math.ceil(total / limit),
+          total
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching session history:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch session history',
+      error: error.message
+    });
+  }
+});
+
 // Get session by ID
 router.get('/:id', auth, async (req, res) => {
   try {
@@ -349,6 +417,45 @@ router.get('/stats/overview', auth, async (req, res) => {
   }
 });
 
+// Get today's session statistics for dashboard
+router.get('/stats/today', auth, async (req, res) => {
+  try {
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
+    
+    const filter = {
+      checkInTime: { $gte: startOfDay, $lt: endOfDay }
+    };
+    
+    const [
+      checkIns,
+      currentlyInGym,
+      completedSessions
+    ] = await Promise.all([
+      GymSession.countDocuments(filter),
+      GymSession.countDocuments({ ...filter, checkOutTime: null }),
+      GymSession.countDocuments({ ...filter, checkOutTime: { $ne: null } })
+    ]);
+    
+    res.json({
+      success: true,
+      data: {
+        checkIns,
+        currentlyInGym,
+        completedSessions
+      }
+    });
+    
+  } catch (error) {
+    console.error('Get today stats error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching today\'s statistics'
+    });
+  }
+});
+
 // Get sessions by member
 router.get('/member/:memberId', auth, async (req, res) => {
   try {
@@ -439,74 +546,6 @@ router.get('/trainer/:trainerId', auth, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Server error while fetching trainer sessions'
-    });
-  }
-});
-
-// Get session history
-router.get('/history', auth, async (req, res) => {
-  try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
-    const skip = (page - 1) * limit;
-    
-    const { memberId, trainerId, startDate, endDate, status } = req.query;
-    
-    // Build filter object
-    const filter = {};
-    
-    if (memberId) {
-      filter.member = memberId;
-    }
-    
-    if (trainerId) {
-      filter.trainer = trainerId;
-    }
-    
-    if (status === 'active') {
-      filter.checkOutTime = null;
-    } else if (status === 'completed') {
-      filter.checkOutTime = { $ne: null };
-    }
-    
-    if (startDate || endDate) {
-      filter.checkInTime = {};
-      if (startDate) {
-        filter.checkInTime.$gte = new Date(startDate);
-      }
-      if (endDate) {
-        filter.checkInTime.$lte = new Date(endDate);
-      }
-    }
-    
-    const sessions = await GymSession.find(filter)
-      .populate('member', 'firstName lastName email phone')
-      .populate('trainer', 'firstName lastName email')
-      .populate('checkedInBy', 'firstName lastName')
-      .populate('checkedOutBy', 'firstName lastName')
-      .sort({ checkInTime: -1 })
-      .skip(skip)
-      .limit(limit);
-    
-    const total = await GymSession.countDocuments(filter);
-    
-    res.json({
-      success: true,
-      data: {
-        sessions,
-        pagination: {
-          current: page,
-          pages: Math.ceil(total / limit),
-          total
-        }
-      }
-    });
-  } catch (error) {
-    console.error('Error fetching session history:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch session history',
-      error: error.message
     });
   }
 });

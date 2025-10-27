@@ -2,9 +2,491 @@ const express = require('express');
 const mongoose = require('mongoose');
 const { GymSession } = require('../models/GymSession');
 const User = require('../models/User');
-const { auth } = require('../middleware/auth');
+const { auth, adminOrTrainerOrStaffAuth } = require('../middleware/auth');
 
 const router = express.Router();
+
+// Enhanced QR Code validation and automatic check-in with session management
+router.post('/qr-checkin', auth, async (req, res) => {
+  try {
+    const { qrData } = req.body;
+    
+    if (!qrData) {
+      return res.status(400).json({
+        success: false,
+        message: 'QR code data is required'
+      });
+    }
+
+    // Parse QR code data with better error handling
+    let parsedData;
+    try {
+      // Handle both string and object formats
+      if (typeof qrData === 'string') {
+        parsedData = JSON.parse(qrData);
+      } else if (typeof qrData === 'object') {
+        parsedData = qrData;
+      } else {
+        throw new Error('Invalid QR data type');
+      }
+    } catch (error) {
+      console.error('QR data parsing error:', error);
+      console.error('QR data received:', qrData);
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid QR code format',
+        error: error.message
+      });
+    }
+
+    // Validate QR code structure for member self-check-in
+    if (parsedData.type !== 'member_self_checkin' || !parsedData.memberId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid QR code type or missing member ID'
+      });
+    }
+
+    // For persistent QR codes, skip timestamp validation
+    if (!parsedData.persistent && parsedData.timestamp) {
+      const qrAge = Date.now() - parsedData.timestamp;
+      if (qrAge > 5 * 60 * 1000) {
+        return res.status(400).json({
+          success: false,
+          message: 'QR code has expired. Please generate a new one.'
+        });
+      }
+    }
+
+    // Find member
+    const member = await User.findById(parsedData.memberId);
+    if (!member) {
+      return res.status(404).json({
+        success: false,
+        message: 'Member not found'
+      });
+    }
+
+    // Check if member is already checked in
+    const activeSession = await GymSession.findOne({
+      member: parsedData.memberId,
+      checkOutTime: { $exists: false }
+    }).populate('member', 'firstName lastName email phone');
+
+    if (activeSession) {
+      // Member is already checked in - show helpful information
+      const checkInTime = new Date(activeSession.checkInTime);
+      const currentTime = new Date();
+      const durationMinutes = Math.floor((currentTime - checkInTime) / (1000 * 60));
+      const durationHours = Math.floor(durationMinutes / 60);
+      const remainingMinutes = durationMinutes % 60;
+
+      return res.status(200).json({
+        success: true,
+        action: 'already_checked_in',
+        message: `${member.firstName} ${member.lastName} is already checked in`,
+        data: {
+          session: activeSession,
+          member: member,
+          checkInTime: checkInTime,
+          currentTime: currentTime,
+          duration: {
+            hours: durationHours,
+            minutes: remainingMinutes,
+            totalMinutes: durationMinutes
+          },
+          message: `Already checked in for ${durationHours}h ${remainingMinutes}m`,
+          canCheckout: true,
+          checkoutMessage: `Would you like to check ${member.firstName} out?`
+        }
+      });
+    }
+
+    // Create new session with proper time recording
+    const checkInTime = new Date();
+    const session = new GymSession({
+      member: parsedData.memberId,
+      checkInTime: checkInTime,
+      notes: parsedData.persistent ? 'Persistent QR Code Check-in' : 'QR Code Check-in',
+      checkedInBy: req.user.userId,
+      sessionType: 'qr_checkin'
+    });
+
+    await session.save();
+    await session.populate('member', 'firstName lastName email phone');
+
+    res.json({
+      success: true,
+      action: 'checkin',
+      message: `QR check-in successful for ${member.firstName} ${member.lastName}`,
+      data: {
+        session: session,
+        member: member,
+        checkInTime: checkInTime,
+        message: `Welcome ${member.firstName}! Checked in at ${checkInTime.toLocaleTimeString()}`
+      }
+    });
+
+  } catch (error) {
+    console.error('QR check-in error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'QR check-in failed',
+      error: error.message
+    });
+  }
+});
+
+// Generate persistent QR code data for member (doesn't expire)
+router.get('/qr-data/:memberId', auth, adminOrTrainerOrStaffAuth, async (req, res) => {
+  try {
+    const { memberId } = req.params;
+    
+    const member = await User.findById(memberId);
+    if (!member) {
+      return res.status(404).json({
+        success: false,
+        message: 'Member not found'
+      });
+    }
+
+    // Create persistent QR data for member self-check-in/check-out
+    const qrData = {
+      type: 'member_self_checkin',
+      action: 'toggle', // toggle between check-in and check-out
+      memberId: memberId,
+      gymId: 'hypgym_dubai',
+      memberName: `${member.firstName} ${member.lastName}`,
+      memberEmail: member.email,
+      memberPhone: member.phone,
+      // No timestamp - this QR code is persistent
+      persistent: true,
+      // Add instructions for the system
+      instructions: 'Scan this QR code to check-in or check-out automatically'
+    };
+
+    res.json({
+      success: true,
+      data: {
+        qrData: JSON.stringify(qrData),
+        member: member,
+        persistent: true
+      }
+    });
+
+  } catch (error) {
+    console.error('QR data generation error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to generate QR data',
+      error: error.message
+    });
+  }
+});
+
+// Get attendance analytics and insights (Luxury Feature)
+router.get('/analytics', auth, async (req, res) => {
+  try {
+    const { period = '30d', startDate, endDate } = req.query;
+    
+    // Calculate date range
+    let dateFilter = {};
+    if (startDate && endDate) {
+      dateFilter.checkInTime = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate)
+      };
+    } else {
+      const days = period === '7d' ? 7 : period === '30d' ? 30 : period === '90d' ? 90 : 365;
+      const start = new Date();
+      start.setDate(start.getDate() - days);
+      dateFilter.checkInTime = { $gte: start };
+    }
+
+    // Total check-ins
+    const totalCheckins = await GymSession.aggregate([
+      { $match: dateFilter },
+      { $group: { _id: null, total: { $sum: 1 } } }
+    ]);
+
+    // Daily attendance trend
+    const dailyAttendance = await GymSession.aggregate([
+      { $match: dateFilter },
+      {
+        $group: {
+          _id: {
+            year: { $year: '$checkInTime' },
+            month: { $month: '$checkInTime' },
+            day: { $dayOfMonth: '$checkInTime' }
+          },
+          count: { $sum: 1 },
+          avgDuration: { $avg: '$duration' }
+        }
+      },
+      { $sort: { '_id.year': 1, '_id.month': 1, '_id.day': 1 } }
+    ]);
+
+    // Peak hours analysis
+    const peakHours = await GymSession.aggregate([
+      { $match: dateFilter },
+      { $group: { _id: { $hour: '$checkInTime' }, count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 10 }
+    ]);
+
+    // Most active members
+    const topMembers = await GymSession.aggregate([
+      { $match: dateFilter },
+      { $group: { _id: '$member', count: { $sum: 1 }, totalDuration: { $sum: '$duration' } } },
+      { $sort: { count: -1 } },
+      { $limit: 10 },
+      {
+        $lookup: {
+          from: 'users',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'member'
+        }
+      },
+      { $unwind: '$member' }
+    ]);
+
+    // Weekly patterns
+    const weeklyPatterns = await GymSession.aggregate([
+      { $match: dateFilter },
+      { $group: { _id: { $dayOfWeek: '$checkInTime' }, count: { $sum: 1 } } },
+      { $sort: { _id: 1 } }
+    ]);
+
+    // Average session duration
+    const avgSessionDuration = await GymSession.aggregate([
+      { $match: { ...dateFilter, duration: { $exists: true } } },
+      { $group: { _id: null, avgDuration: { $avg: '$duration' } } }
+    ]);
+
+    // Monthly growth
+    const monthlyGrowth = await GymSession.aggregate([
+      { $match: dateFilter },
+      {
+        $group: {
+          _id: {
+            year: { $year: '$checkInTime' },
+            month: { $month: '$checkInTime' }
+          },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { '_id.year': 1, '_id.month': 1 } }
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        totalCheckins: totalCheckins[0]?.total || 0,
+        dailyAttendance,
+        peakHours,
+        topMembers,
+        weeklyPatterns,
+        avgSessionDuration: avgSessionDuration[0]?.avgDuration || 0,
+        monthlyGrowth,
+        period,
+        dateRange: {
+          start: dateFilter.checkInTime?.$gte || new Date(),
+          end: dateFilter.checkInTime?.$lte || new Date()
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Attendance analytics error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching attendance analytics'
+    });
+  }
+});
+
+// Get attendance insights and predictions (Luxury Feature)
+router.get('/insights', auth, async (req, res) => {
+  try {
+    // Get last 6 months data for predictions
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+    // Monthly attendance trends
+    const monthlyTrend = await GymSession.aggregate([
+      { $match: { checkInTime: { $gte: sixMonthsAgo } } },
+      {
+        $group: {
+          _id: {
+            year: { $year: '$checkInTime' },
+            month: { $month: '$checkInTime' }
+          },
+          count: { $sum: 1 },
+          avgDuration: { $avg: '$duration' }
+        }
+      },
+      { $sort: { '_id.year': 1, '_id.month': 1 } }
+    ]);
+
+    // Calculate growth rate
+    const growthRate = monthlyTrend.length > 1 ? 
+      ((monthlyTrend[monthlyTrend.length - 1].count - monthlyTrend[monthlyTrend.length - 2].count) / 
+       monthlyTrend[monthlyTrend.length - 2].count * 100) : 0;
+
+    // Busiest days of the week
+    const busiestDays = await GymSession.aggregate([
+      { $match: { checkInTime: { $gte: sixMonthsAgo } } },
+      { $group: { _id: { $dayOfWeek: '$checkInTime' }, count: { $sum: 1 } } },
+      { $sort: { count: -1 } }
+    ]);
+
+    // Attendance patterns by hour
+    const hourlyPatterns = await GymSession.aggregate([
+      { $match: { checkInTime: { $gte: sixMonthsAgo } } },
+      { $group: { _id: { $hour: '$checkInTime' }, count: { $sum: 1 } } },
+      { $sort: { _id: 1 } }
+    ]);
+
+    // Member retention analysis
+    const retentionAnalysis = await GymSession.aggregate([
+      { $match: { checkInTime: { $gte: sixMonthsAgo } } },
+      {
+        $group: {
+          _id: '$member',
+          totalSessions: { $sum: 1 },
+          firstSession: { $min: '$checkInTime' },
+          lastSession: { $max: '$checkInTime' }
+        }
+      },
+      {
+        $project: {
+          daysSinceFirst: {
+            $divide: [
+              { $subtract: [new Date(), '$firstSession'] },
+              1000 * 60 * 60 * 24
+            ]
+          },
+          daysSinceLast: {
+            $divide: [
+              { $subtract: [new Date(), '$lastSession'] },
+              1000 * 60 * 60 * 24
+            ]
+          },
+          totalSessions: 1
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          avgSessionsPerMember: { $avg: '$totalSessions' },
+          avgDaysSinceLastVisit: { $avg: '$daysSinceLast' },
+          totalActiveMembers: { $sum: 1 }
+        }
+      }
+    ]);
+
+    // Attendance forecast
+    const forecast = monthlyTrend.length >= 3 ? 
+      monthlyTrend[monthlyTrend.length - 1].count + (growthRate / 100 * monthlyTrend[monthlyTrend.length - 1].count) : 0;
+
+    res.json({
+      success: true,
+      data: {
+        monthlyTrend,
+        growthRate: Math.round(growthRate * 100) / 100,
+        busiestDays,
+        hourlyPatterns,
+        retentionAnalysis: retentionAnalysis[0] || {},
+        forecast: Math.round(forecast),
+        insights: {
+          trend: growthRate > 0 ? 'Growing' : growthRate < 0 ? 'Declining' : 'Stable',
+          recommendation: growthRate > 10 ? 'Excellent attendance! Consider expanding capacity.' : 
+                          growthRate < -10 ? 'Attendance declining. Review member engagement.' : 
+                          'Steady attendance. Focus on member retention.'
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Attendance insights error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching attendance insights'
+    });
+  }
+});
+
+// Get member attendance heatmap (Luxury Feature)
+router.get('/heatmap/:memberId', auth, async (req, res) => {
+  try {
+    const { memberId } = req.params;
+    const { period = '30d' } = req.query;
+    
+    // Calculate date range
+    const days = period === '7d' ? 7 : period === '30d' ? 30 : period === '90d' ? 90 : 365;
+    const start = new Date();
+    start.setDate(start.getDate() - days);
+
+    // Get member's attendance data
+    const attendanceData = await GymSession.aggregate([
+      { 
+        $match: { 
+          member: new mongoose.Types.ObjectId(memberId),
+          checkInTime: { $gte: start }
+        } 
+      },
+      {
+        $group: {
+          _id: {
+            year: { $year: '$checkInTime' },
+            month: { $month: '$checkInTime' },
+            day: { $dayOfMonth: '$checkInTime' },
+            hour: { $hour: '$checkInTime' }
+          },
+          count: { $sum: 1 },
+          avgDuration: { $avg: '$duration' }
+        }
+      },
+      { $sort: { '_id.year': 1, '_id.month': 1, '_id.day': 1, '_id.hour': 1 } }
+    ]);
+
+    // Create heatmap data structure
+    const heatmapData = [];
+    for (let i = 0; i < 24; i++) {
+      heatmapData[i] = [];
+      for (let j = 0; j < days; j++) {
+        heatmapData[i][j] = 0;
+      }
+    }
+
+    // Populate heatmap data
+    attendanceData.forEach(entry => {
+      const hour = entry._id.hour;
+      const dayIndex = Math.floor((new Date(entry._id.year, entry._id.month - 1, entry._id.day) - start) / (1000 * 60 * 60 * 24));
+      if (dayIndex >= 0 && dayIndex < days) {
+        heatmapData[hour][dayIndex] = entry.count;
+      }
+    });
+
+    res.json({
+      success: true,
+      data: {
+        heatmapData,
+        period,
+        memberId,
+        totalSessions: attendanceData.reduce((sum, entry) => sum + entry.count, 0)
+      }
+    });
+
+  } catch (error) {
+    console.error('Attendance heatmap error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching attendance heatmap'
+    });
+  }
+});
 
 // Check-in endpoint
 router.post('/checkin', auth, async (req, res) => {
@@ -28,9 +510,31 @@ router.post('/checkin', auth, async (req, res) => {
     });
 
     if (activeSession) {
-      return res.status(400).json({
-        success: false,
-        message: 'Member already has an active session'
+      // Member is already checked in - show helpful information instead of error
+      const checkInTime = new Date(activeSession.checkInTime);
+      const currentTime = new Date();
+      const durationMinutes = Math.floor((currentTime - checkInTime) / (1000 * 60));
+      const durationHours = Math.floor(durationMinutes / 60);
+      const remainingMinutes = durationMinutes % 60;
+
+      return res.status(200).json({
+        success: true,
+        action: 'already_checked_in',
+        message: `${member.firstName} ${member.lastName} is already checked in`,
+        data: {
+          session: activeSession,
+          member: member,
+          checkInTime: checkInTime,
+          currentTime: currentTime,
+          duration: {
+            hours: durationHours,
+            minutes: remainingMinutes,
+            totalMinutes: durationMinutes
+          },
+          message: `Already checked in for ${durationHours}h ${remainingMinutes}m`,
+          canCheckout: true,
+          checkoutMessage: `Would you like to check ${member.firstName} out?`
+        }
       });
     }
 
@@ -310,5 +814,3 @@ router.post('/force-checkout/:sessionId', auth, async (req, res) => {
 });
 
 module.exports = router;
-
-

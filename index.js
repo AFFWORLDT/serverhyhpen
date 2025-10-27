@@ -94,24 +94,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error('Error:', err);
-  if (err.message === 'Not allowed by CORS') {
-    res.status(403).json({
-      success: false,
-      message: 'CORS Error: Origin not allowed',
-      origin: req.headers.origin
-    });
-  } else {
-    res.status(500).json({
-      success: false,
-      message: 'Internal Server Error',
-      error: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong'
-    });
-  }
-});
-
 // MongoDB Connection
 const MONGODB_URI = 'mongodb+srv://affworldtechnologies:wMbiyR0ZM8JWfOYl@loc.6qmwn3p.mongodb.net/hypgymdubaiii';
 
@@ -192,6 +174,16 @@ app.use('/api/smtp', checkMongoConnection, require('./routes/smtp'));
 app.use('/api/profile', checkMongoConnection, require('./routes/profile'));
 app.use('/api/personal', checkMongoConnection, require('./routes/personal'));
 app.use('/api/system', checkMongoConnection, require('./routes/system'));
+app.use('/api/kyc', checkMongoConnection, require('./routes/kyc'));
+
+// Content Management APIs
+app.use('/api/news', checkMongoConnection, require('./routes/news'));
+app.use('/api/banners', checkMongoConnection, require('./routes/banners'));
+app.use('/api/offers', checkMongoConnection, require('./routes/offers'));
+app.use('/api/events', checkMongoConnection, require('./routes/events'));
+app.use('/api/pro-tips', checkMongoConnection, require('./routes/pro-tips'));
+app.use('/api/faq', checkMongoConnection, require('./routes/faq'));
+app.use('/api/support', checkMongoConnection, require('./routes/support'));
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -232,6 +224,7 @@ app.get('/', (req, res) => {
       payments: '/api/payments',
       checkin: '/api/checkin',
       bookings: '/api/bookings',
+      support: '/api/support',
       notifications: '/api/notifications',
       admin: '/api/admin',
       dashboard: '/api/dashboard'
@@ -248,30 +241,31 @@ app.get('/api/test', (req, res) => {
   });
 });
 
-// Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
-    message: 'HypGym Dubai Server is running!',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    environment: process.env.NODE_ENV || 'development',
-    mongodb: mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected'
-  });
-});
-
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ 
-    message: 'Something went wrong!',
-    error: process.env.NODE_ENV === 'development' ? err.message : {}
+  console.error('Error:', err.stack);
+  
+  if (err.message === 'Not allowed by CORS') {
+    return res.status(403).json({
+      success: false,
+      message: 'CORS Error: Origin not allowed',
+      origin: req.headers.origin
+    });
+  }
+  
+  res.status(err.status || 500).json({
+    success: false,
+    message: err.message || 'Internal Server Error',
+    error: process.env.NODE_ENV === 'development' ? err.stack : 'Something went wrong'
   });
 });
 
 // 404 handler
 app.use('*', (req, res) => {
-  res.status(404).json({ message: 'Route not found' });
+  res.status(404).json({ 
+    success: false,
+    message: 'Route not found' 
+  });
 });
 
 // WebSocket functionality

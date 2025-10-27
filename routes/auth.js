@@ -48,7 +48,9 @@ router.post('/register', [
       phone,
       password,
       role,
-      isActive: true
+      isActive: true,
+      // Creation tracking
+      creationMethod: 'self_registration'
     };
 
     // Add role-specific fields
@@ -255,7 +257,12 @@ router.post('/login', [
           role: user.role,
           dateOfBirth: user.dateOfBirth,
           gender: user.gender,
-          lastLogin: user.lastLogin
+          lastLogin: user.lastLogin,
+          // Include staff-specific fields for sub-role handling
+          department: user.department,
+          position: user.position,
+          employeeId: user.employeeId,
+          workSchedule: user.workSchedule
         },
         token
       }

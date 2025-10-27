@@ -5,11 +5,11 @@ const User = require('../models/User');
 const { Membership } = require('../models/Membership');
 const Programme = require('../models/Programme');
 const TrainingSession = require('../models/TrainingSession');
-const { auth, adminAuth, adminOrTrainerAuth } = require('../middleware/auth');
+const { auth, adminAuth, adminOrTrainerAuth, adminOrTrainerOrStaffAuth } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Get all members (Admin/Trainer only) or own data (Member)
+// Get all members (Admin/Trainer/Staff) or own data (Member)
 router.get('/', auth, async (req, res) => {
   try {
     // If user is member, only return their own data
@@ -33,11 +33,11 @@ router.get('/', auth, async (req, res) => {
       });
     }
     
-    // For Admin/Trainer - get all members
-    if (!['admin', 'trainer'].includes(req.user.role)) {
+    // For Admin/Trainer/Staff - get all members
+    if (!['admin', 'trainer', 'staff'].includes(req.user.role)) {
       return res.status(403).json({
         success: false,
-        message: 'Access denied. Admin or Trainer privileges required.'
+        message: 'Access denied. Admin, Trainer, or Staff privileges required.'
       });
     }
     
@@ -87,7 +87,7 @@ router.get('/', auth, async (req, res) => {
 });
 
 // Get member by ID
-router.get('/:id', async (req, res) => {
+router.get('/:id', auth, adminOrTrainerOrStaffAuth, async (req, res) => {
   try {
     console.log('Fetching member with ID:', req.params.id);
     
@@ -133,8 +133,8 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Create new member (Admin only)
-router.post('/', auth, adminAuth, [
+// Create new member (Admin or Trainer)
+router.post('/', auth, adminOrTrainerAuth, [
   body('firstName').trim().isLength({ min: 2 }).withMessage('First name must be at least 2 characters'),
   body('lastName').trim().isLength({ min: 2 }).withMessage('Last name must be at least 2 characters'),
   body('email').isEmail().normalizeEmail().withMessage('Please provide a valid email'),
@@ -165,7 +165,12 @@ router.post('/', auth, adminAuth, [
       });
     }
 
-    // Create new member
+    // Get creator info
+    const creator = await User.findById(req.user.userId);
+    const creatorName = creator ? `${creator.firstName} ${creator.lastName}` : 'System';
+    const creationMethod = req.user.role === 'admin' ? 'manual' : req.user.role === 'trainer' ? 'manual' : 'api';
+
+    // Create new member with creator tracking
     const member = new User({
       firstName,
       lastName,
@@ -176,7 +181,10 @@ router.post('/', auth, adminAuth, [
       gender,
       address,
       emergencyContact,
-      role: 'member'
+      role: 'member',
+      createdBy: req.user.userId,
+      createdByName: creatorName,
+      creationMethod: creationMethod
     });
 
     await member.save();
@@ -208,7 +216,7 @@ router.post('/', auth, adminAuth, [
 });
 
 // Update member (Admin only)
-router.put('/:id', auth, adminAuth, [
+router.put('/:id', auth, adminOrTrainerOrStaffAuth, [
   body('firstName').optional().trim().isLength({ min: 2 }),
   body('lastName').optional().trim().isLength({ min: 2 }),
   body('email').optional().isEmail().normalizeEmail(),
@@ -227,7 +235,7 @@ router.put('/:id', auth, adminAuth, [
       });
     }
 
-    const allowedUpdates = ['firstName', 'lastName', 'email', 'phone', 'dateOfBirth', 'gender', 'address', 'emergencyContact', 'isActive'];
+    const allowedUpdates = ['firstName', 'lastName', 'email', 'phone', 'dateOfBirth', 'gender', 'address', 'emergencyContact', 'isActive', 'createdAt'];
     const updates = {};
 
     Object.keys(req.body).forEach(key => {
@@ -341,7 +349,7 @@ router.put('/:id/reactivate', auth, adminAuth, async (req, res) => {
 });
 
 // Get member's membership history
-router.get('/:id/memberships', auth, adminOrTrainerAuth, async (req, res) => {
+router.get('/:id/memberships', auth, adminOrTrainerOrStaffAuth, async (req, res) => {
   try {
     const memberships = await Membership.find({ member: req.params.id })
       .populate('plan')
@@ -435,7 +443,7 @@ router.post('/:id/assign-programme', auth, adminOrTrainerAuth, [
 });
 
 // Get member sessions
-router.get('/:id/sessions', auth, adminOrTrainerAuth, async (req, res) => {
+router.get('/:id/sessions', auth, adminOrTrainerOrStaffAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const { status, start_date, end_date } = req.query;
@@ -500,7 +508,7 @@ router.get('/:id/sessions', auth, adminOrTrainerAuth, async (req, res) => {
 });
 
 // Get member statistics
-router.get('/:id/stats', auth, adminOrTrainerAuth, async (req, res) => {
+router.get('/:id/stats', auth, adminOrTrainerOrStaffAuth, async (req, res) => {
   try {
     const { id } = req.params;
     
@@ -564,7 +572,7 @@ router.get('/:id/stats', auth, adminOrTrainerAuth, async (req, res) => {
 });
 
 // Get member statistics overview
-router.get('/stats/overview', auth, adminOrTrainerAuth, async (req, res) => {
+router.get('/stats/overview', auth, adminOrTrainerOrStaffAuth, async (req, res) => {
   try {
     const filter = {};
     if (req.user.role === 'trainer') {

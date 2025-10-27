@@ -34,7 +34,11 @@ const auth = async (req, res, next) => {
     req.user = {
       userId: user._id,
       email: user.email,
-      role: user.role
+      role: user.role,
+      // Include staff-specific fields for sub-role handling
+      department: user.department,
+      position: user.position,
+      employeeId: user.employeeId
     };
     
     next();
@@ -49,6 +53,13 @@ const auth = async (req, res, next) => {
 
 // Admin only middleware
 const adminAuth = (req, res, next) => {
+  if (!req.user || !req.user.role) {
+    return res.status(401).json({
+      success: false,
+      message: 'Authentication required'
+    });
+  }
+  
   if (req.user.role !== 'admin') {
     return res.status(403).json({
       success: false,
@@ -60,6 +71,13 @@ const adminAuth = (req, res, next) => {
 
 // Admin or Trainer middleware
 const adminOrTrainerAuth = (req, res, next) => {
+  if (!req.user || !req.user.role) {
+    return res.status(401).json({
+      success: false,
+      message: 'Authentication required'
+    });
+  }
+  
   if (!['admin', 'trainer'].includes(req.user.role)) {
     return res.status(403).json({
       success: false,
@@ -69,4 +87,22 @@ const adminOrTrainerAuth = (req, res, next) => {
   next();
 };
 
-module.exports = { auth, adminAuth, adminOrTrainerAuth };
+// Admin or Trainer or Staff middleware
+const adminOrTrainerOrStaffAuth = (req, res, next) => {
+  if (!req.user || !req.user.role) {
+    return res.status(401).json({
+      success: false,
+      message: 'Authentication required'
+    });
+  }
+  
+  if (!['admin', 'trainer', 'staff'].includes(req.user.role)) {
+    return res.status(403).json({
+      success: false,
+      message: 'Access denied. Admin, Trainer, or Staff privileges required.'
+    });
+  }
+  next();
+};
+
+module.exports = { auth, adminAuth, adminOrTrainerAuth, adminOrTrainerOrStaffAuth };
