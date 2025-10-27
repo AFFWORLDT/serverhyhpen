@@ -94,8 +94,8 @@ app.use((req, res, next) => {
   next();
 });
 
-// MongoDB Connection
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://affworldtechnologies:wMbiyR0ZM8JWfOYl@loc.6qmwn3p.mongodb.net/hypgymdubaiii';
+// MongoDB Connection - Using direct connection string
+const MONGODB_URI = 'mongodb+srv://affworldtechnologies:wMbiyR0ZM8JWfOYl@loc.6qmwn3p.mongodb.net/hypgymdubaiii?retryWrites=true&w=majority';
 
 // Enhanced MongoDB connection with retry logic
 const connectWithRetry = () => {
