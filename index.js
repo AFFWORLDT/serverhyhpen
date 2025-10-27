@@ -40,11 +40,13 @@ app.use(cors({
       "https://hypgym-dubai-admin.vercel.app"
     ];
     
-    // Check if origin is allowed or is a Vercel preview URL
+    // Check if origin is allowed or is a Vercel preview URL or mobile app
     if (allowedOrigins.includes(origin) || 
         origin.includes('.vercel.app') || 
         origin.includes('localhost') ||
-        origin.includes('127.0.0.1')) {
+        origin.includes('127.0.0.1') ||
+        origin.startsWith('expo://') ||
+        origin.includes('exp://')) {
       callback(null, true);
     } else {
       console.log('CORS blocked origin:', origin);
@@ -72,11 +74,13 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   
-  // Allow all Vercel domains
+  // Allow all Vercel domains and mobile app origins
   if (!origin || 
       origin.includes('.vercel.app') || 
       origin.includes('localhost') ||
-      origin.includes('127.0.0.1')) {
+      origin.includes('127.0.0.1') ||
+      origin.startsWith('expo://') ||
+      origin.includes('exp://')) {
     res.header('Access-Control-Allow-Origin', origin || '*');
   }
   
