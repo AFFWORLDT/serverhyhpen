@@ -95,7 +95,7 @@ app.use((req, res, next) => {
 });
 
 // MongoDB Connection - Using environment variable or fallback
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://affworldtechnologies:wMbiyR0ZM8JWfOYl@loc.6qmwn3p.mongodb.net/hypgymdubaiii?retryWrites=true&w=majority';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://affproject:joIbq2zQr4poILoP@propfusion.ktknx.mongodb.net/hypgymdubaiii?retryWrites=true&w=majority';
 
 // Enhanced MongoDB connection with retry logic
 const connectWithRetry = () => {

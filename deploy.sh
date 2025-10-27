@@ -4,7 +4,7 @@ echo "🚀 Deploying HypGym Backend to Multiple Platforms"
 echo "=================================================="
 
 # Environment variables
-export MONGODB_URI="mongodb+srv://affworldtechnologies:wMbiyR0ZM8JWfOYl@loc.6qmwn3p.mongodb.net/hypgymdubaiii?retryWrites=true&w=majority"
+export MONGODB_URI="mongodb+srv://affproject:joIbq2zQr4poILoP@propfusion.ktknx.mongodb.net/hypgymdubaiii?retryWrites=true&w=majority"
 export JWT_SECRET="4c05ff8b3007b64382ccc741bc66f1bb3108210bfe7ad6bc9a78c1d7addf384345037d20e343b20cef5c5ea91f0366518dc36c26a58e94ece54b462bd346dbfd"
 export NODE_ENV="production"
 
