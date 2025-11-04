@@ -1,0 +1,63 @@
+// Simplified health check for Vercel serverless
+const mongoose = require('mongoose');
+
+const MONGODB_URI = 'mongodb+srv://affworldtechnologies:wMbiyR0ZM8JWfOYl@loc.6qmwn3p.mongodb.net/hypgymdubaiii?retryWrites=true&w=majority';
+
+// Try to get existing connection or create new one
+let cachedConnection = null;
+
+module.exports = async (req, res) => {
+  try {
+    // Check if connection exists
+    if (mongoose.connection.readyState === 1) {
+      return res.json({
+        status: 'OK',
+        message: 'HypGym Dubai Backend API is running!',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        environment: process.env.NODE_ENV || 'production',
+        mongodb: 'Connected',
+        connectionState: mongoose.connection.readyState
+      });
+    }
+
+    // Try to connect
+    if (!cachedConnection) {
+      cachedConnection = mongoose.connect(MONGODB_URI, {
+        serverSelectionTimeoutMS: 30000,
+        socketTimeoutMS: 45000,
+        maxPoolSize: 10,
+        minPoolSize: 2,
+        retryWrites: true,
+        w: 'majority',
+        useNewUrlParser: true,
+        useUnifiedTopology: true
+      });
+    }
+
+    await cachedConnection;
+
+    return res.json({
+      status: 'OK',
+      message: 'HypGym Dubai Backend API is running!',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      environment: process.env.NODE_ENV || 'production',
+      mongodb: 'Connected',
+      connectionState: mongoose.connection.readyState
+    });
+  } catch (error) {
+    console.error('Health check error:', error);
+    return res.json({
+      status: 'OK',
+      message: 'HypGym Dubai Backend API is running!',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      environment: process.env.NODE_ENV || 'production',
+      mongodb: 'Disconnected',
+      error: error.message,
+      connectionState: mongoose.connection.readyState
+    });
+  }
+};
+
