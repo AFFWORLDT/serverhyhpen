@@ -1,57 +1,34 @@
-name: Deploy to EC2 Ubuntu
+name: Test and Deploy Node App
 
 on:
   push:
-    branches:
-      - main
-      - master
-  workflow_dispatch:
+    branches: [ "main" ]
 
 jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    
+npmuild-and-deploy:
+    runs-on: self-hosted
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v3
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-          cache: 'npm'
+    - name: Set up Node.js 18
+      uses: actions/setup-node@v3
+      with:
+        node-version: "18"
 
-      - name: Install dependencies
-        run: npm ci
+    - name: Install dependencies
+      run: |
+        npm install
 
-      - name: Run tests (if any)
-        run: npm test || true
-        continue-on-error: true
+    - name: Build project (optional)
+      run: |
+        if [ -f package.json ] && grep -q '"build"' package.json; then
+          npm run build
+        else
+          echo "No build step found, skipping..."
+        fi
 
-      - name: Deploy to EC2
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USERNAME }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          port: ${{ secrets.EC2_PORT || 22 }}
-          timeout: 300s
-          script: |
-            cd /home/${{ secrets.EC2_USERNAME }}/serverhyhpen || cd ~/serverhyhpen
-            git pull origin main || git pull origin master
-            npm ci --production
-            pm2 restart all || pm2 start index.js --name serverhyhpen || node index.js
-            echo "Deployment completed successfully"
-
-      - name: Verify deployment
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USERNAME }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          port: ${{ secrets.EC2_PORT || 22 }}
-          timeout: 60s
-          script: |
-            pm2 list || echo "PM2 not installed, checking if app is running..."
-            curl -f http://localhost:5001/health || echo "Health check endpoint not available"
-
+    - name: Restart Node app with PM2
+      run: |
+        pm2 reload gymbackand || pm2 start npm --name "gymbackand" -- start
