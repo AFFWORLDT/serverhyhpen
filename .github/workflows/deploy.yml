@@ -35,6 +35,7 @@ jobs:
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           port: ${{ secrets.EC2_PORT || 22 }}
+          timeout: 300s
           script: |
             cd /home/${{ secrets.EC2_USERNAME }}/serverhyhpen || cd ~/serverhyhpen
             git pull origin main || git pull origin master
@@ -49,6 +50,7 @@ jobs:
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           port: ${{ secrets.EC2_PORT || 22 }}
+          timeout: 60s
           script: |
             pm2 list || echo "PM2 not installed, checking if app is running..."
             curl -f http://localhost:5001/health || echo "Health check endpoint not available"
