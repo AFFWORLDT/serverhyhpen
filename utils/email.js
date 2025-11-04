@@ -36,7 +36,15 @@ function buildBaseTemplate({ title, bodyHtml, headerColor = 'linear-gradient(135
           color: #fff; 
           text-align: center;
         }
-        .header h2 { margin: 0; font-size: 24px; font-weight: 700; }
+        .header h2 { 
+          margin: 0; 
+          font-size: 48px; 
+          font-weight: 700; 
+          font-family: 'Optima', 'Poppins', sans-serif;
+          font-style: normal;
+          color: rgb(255, 255, 255);
+          line-height: normal;
+        }
         .header p { margin: 8px 0 0; opacity: 0.95; font-size: 14px; }
         .content { padding: 32px 24px; }
         .footer { 

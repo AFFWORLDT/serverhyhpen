@@ -1,44 +1,14 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
 const FAQ = require('../models/FAQ');
 const { auth, adminAuth } = require('../middleware/auth');
+const { createCloudinaryStorage, deleteImage } = require('../utils/cloudinary');
 
 const router = express.Router();
 
-// Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const uploadPath = 'uploads/faq';
-    if (!fs.existsSync(uploadPath)) {
-      fs.mkdirSync(uploadPath, { recursive: true });
-    }
-    cb(null, uploadPath);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
-
-const upload = multer({
-  storage: storage,
-  limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB limit
-  },
-  fileFilter: function (req, file, cb) {
-    const allowedTypes = /pdf|doc|docx|txt|jpg|jpeg|png|gif/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    
-    if (extname) {
-      return cb(null, true);
-    } else {
-      cb(new Error('Only PDF, DOC, DOCX, TXT, and image files are allowed!'));
-    }
-  }
-});
+// Configure Cloudinary for file uploads (supports PDF and images)
+// Note: Cloudinary supports PDF and images natively. For DOC/DOCX/TXT, we'll handle as raw files
+const upload = createCloudinaryStorage('faq', ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf'], 5242880, true); // 5MB, allow PDF
 
 // Get all FAQs (Admin only)
 router.get('/', auth, adminAuth, async (req, res) => {
@@ -76,7 +46,8 @@ router.get('/', auth, adminAuth, async (req, res) => {
       .populate('lastReviewedBy', 'firstName lastName email')
       .sort({ [sortBy]: sortOrder })
       .skip(skip)
-      .limit(limit);
+      .limit(limit)
+      .lean(); // Use .lean() for better performance
 
     const total = await FAQ.countDocuments(query);
 
@@ -396,14 +367,16 @@ router.post('/', auth, adminAuth, upload.array('attachments', 5), [
       reviewFrequency
     } = req.body;
 
-    // Handle file uploads
+    // Handle file uploads from Cloudinary
     let attachments = [];
-    if (req.files) {
+    if (req.files && req.files.length > 0) {
       attachments = req.files.map(file => ({
         name: file.originalname,
-        url: `/uploads/faq/${file.filename}`,
+        url: file.secure_url || file.url,
+        publicId: file.public_id,
         type: file.mimetype,
-        size: file.size
+        size: file.bytes || file.size,
+        resourceType: file.resource_type || 'auto'
       }));
     }
 
@@ -488,13 +461,15 @@ router.put('/:id', auth, adminAuth, upload.array('attachments', 5), [
       }
     });
 
-    // Handle file uploads
+    // Handle file uploads from Cloudinary
     if (req.files && req.files.length > 0) {
       const newAttachments = req.files.map(file => ({
         name: file.originalname,
-        url: `/uploads/faq/${file.filename}`,
+        url: file.secure_url || file.url,
+        publicId: file.public_id,
         type: file.mimetype,
-        size: file.size
+        size: file.bytes || file.size,
+        resourceType: file.resource_type || 'auto'
       }));
       updates.attachments = [...faq.attachments, ...newAttachments];
     }
@@ -559,6 +534,19 @@ router.delete('/:id', auth, adminAuth, async (req, res) => {
         success: false,
         message: 'FAQ not found'
       });
+    }
+
+    // Delete attachments from Cloudinary if exists
+    if (faq.attachments && faq.attachments.length > 0) {
+      for (const attachment of faq.attachments) {
+        if (attachment.publicId) {
+          try {
+            await deleteImage(attachment.publicId);
+          } catch (deleteError) {
+            console.log('Attachment deletion warning:', deleteError.message);
+          }
+        }
+      }
     }
 
     await FAQ.findByIdAndDelete(req.params.id);

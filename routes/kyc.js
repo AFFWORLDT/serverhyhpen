@@ -1,43 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
 const { auth, adminAuth } = require('../middleware/auth');
 const KYCDocument = require('../models/KYCDocument');
 const User = require('../models/User');
+const { createCloudinaryStorage, deleteImage } = require('../utils/cloudinary');
 
-// Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const uploadPath = 'uploads/kyc-documents';
-    if (!fs.existsSync(uploadPath)) {
-      fs.mkdirSync(uploadPath, { recursive: true });
-    }
-    cb(null, uploadPath);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
-
-const fileFilter = (req, file, cb) => {
-  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
-  if (allowedTypes.includes(file.mimetype)) {
-    cb(null, true);
-  } else {
-    cb(new Error('Invalid file type. Only JPEG, PNG, and PDF files are allowed.'), false);
-  }
-};
-
-const upload = multer({
-  storage: storage,
-  fileFilter: fileFilter,
-  limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB limit
-  }
-});
+// Configure Cloudinary for file uploads (supports PDF and images)
+const upload = createCloudinaryStorage('kyc-documents', ['jpg', 'jpeg', 'png', 'gif', 'webp'], 10485760, true); // 10MB, allow PDF
 
 // Get all KYC documents for a member (Admin only)
 router.get('/member/:memberId', auth, adminAuth, async (req, res) => {
@@ -45,7 +14,7 @@ router.get('/member/:memberId', auth, adminAuth, async (req, res) => {
     const { memberId } = req.params;
     
     const documents = await KYCDocument.find({ member: memberId })
-      .populate('member', 'firstName lastName email')
+        .populate('member', 'firstName lastName email profileImage')
       .populate('verifiedBy', 'firstName lastName')
       .sort({ createdAt: -1 });
 
@@ -138,10 +107,12 @@ router.post('/document', auth, upload.array('documents', 5), async (req, res) =>
 
     const documentFiles = req.files.map(file => ({
       fileName: file.originalname,
-      fileUrl: `/uploads/kyc-documents/${file.filename}`,
+      fileUrl: file.secure_url || file.url,
+      publicId: file.public_id,
       fileType: file.mimetype,
-      fileSize: file.size,
-      uploadedAt: new Date()
+      fileSize: file.bytes || file.size,
+      uploadedAt: new Date(),
+      resourceType: file.resource_type || 'auto'
     }));
 
     const kycDocument = new KYCDocument({
@@ -347,13 +318,18 @@ router.delete('/document/:documentId', auth, adminAuth, async (req, res) => {
       });
     }
 
-    // Delete physical files
-    document.documentFiles.forEach(file => {
-      const filePath = path.join(process.cwd(), file.fileUrl);
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
+    // Delete files from Cloudinary if exists
+    if (document.documentFiles && document.documentFiles.length > 0) {
+      for (const file of document.documentFiles) {
+        if (file.publicId) {
+          try {
+            await deleteImage(file.publicId);
+          } catch (deleteError) {
+            console.log('Document deletion warning:', deleteError.message);
+          }
+        }
       }
-    });
+    }
 
     await KYCDocument.findByIdAndDelete(documentId);
 

@@ -1,45 +1,13 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
 const Banner = require('../models/Banner');
 const { auth, adminAuth } = require('../middleware/auth');
+const { createCloudinaryStorage, deleteImage } = require('../utils/cloudinary');
 
 const router = express.Router();
 
-// Configure multer for image uploads
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const uploadPath = 'uploads/banners';
-    if (!fs.existsSync(uploadPath)) {
-      fs.mkdirSync(uploadPath, { recursive: true });
-    }
-    cb(null, uploadPath);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
-
-const upload = multer({
-  storage: storage,
-  limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB limit
-  },
-  fileFilter: function (req, file, cb) {
-    const allowedTypes = /jpeg|jpg|png|gif|webp|svg/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
-    
-    if (mimetype && extname) {
-      return cb(null, true);
-    } else {
-      cb(new Error('Only image files are allowed!'));
-    }
-  }
-});
+// Configure Cloudinary for image uploads
+const upload = createCloudinaryStorage('banners', ['jpg', 'jpeg', 'png', 'gif', 'webp'], 10485760); // 10MB
 
 // Get all banners (Admin only)
 router.get('/', auth, adminAuth, async (req, res) => {
@@ -295,20 +263,26 @@ router.post('/', auth, adminAuth, upload.fields([
       design
     } = req.body;
 
-    // Handle file uploads
+    // Handle file uploads from Cloudinary
     let image = null;
     let mobileImage = null;
 
     if (req.files) {
-      if (req.files.image) {
+      if (req.files.image && req.files.image[0]) {
+        const uploadedFile = req.files.image[0];
         image = {
-          url: `/uploads/banners/${req.files.image[0].filename}`,
-          alt: req.body.imageAlt || ''
+          url: uploadedFile.secure_url || uploadedFile.url,
+          publicId: uploadedFile.public_id,
+          alt: req.body.imageAlt || '',
+          width: uploadedFile.width,
+          height: uploadedFile.height,
+          format: uploadedFile.format
         };
       }
 
-      if (req.files.mobileImage) {
-        mobileImage = `/uploads/banners/${req.files.mobileImage[0].filename}`;
+      if (req.files.mobileImage && req.files.mobileImage[0]) {
+        const uploadedFile = req.files.mobileImage[0];
+        mobileImage = uploadedFile.secure_url || uploadedFile.url;
       }
     }
 
@@ -403,19 +377,34 @@ router.put('/:id', auth, adminAuth, upload.fields([
       }
     });
 
-    // Handle file uploads
+    // Handle file uploads from Cloudinary
     if (req.files) {
-      if (req.files.image) {
+      if (req.files.image && req.files.image[0]) {
+        // Delete old image from Cloudinary if exists
+        if (banner.image && banner.image.publicId) {
+          try {
+            await deleteImage(banner.image.publicId);
+          } catch (deleteError) {
+            console.log('Old image deletion warning:', deleteError.message);
+          }
+        }
+
+        const uploadedFile = req.files.image[0];
         updates.image = {
-          url: `/uploads/banners/${req.files.image[0].filename}`,
-          alt: req.body.imageAlt || '',
-          mobileUrl: banner.image.mobileUrl
+          url: uploadedFile.secure_url || uploadedFile.url,
+          publicId: uploadedFile.public_id,
+          alt: req.body.imageAlt || banner.image?.alt || '',
+          mobileUrl: banner.image?.mobileUrl,
+          width: uploadedFile.width,
+          height: uploadedFile.height,
+          format: uploadedFile.format
         };
       }
 
-      if (req.files.mobileImage) {
-        updates.image = updates.image || banner.image;
-        updates.image.mobileUrl = `/uploads/banners/${req.files.mobileImage[0].filename}`;
+      if (req.files.mobileImage && req.files.mobileImage[0]) {
+        const uploadedFile = req.files.mobileImage[0];
+        updates.image = updates.image || banner.image || {};
+        updates.image.mobileUrl = uploadedFile.secure_url || uploadedFile.url;
       }
     }
 
@@ -460,6 +449,17 @@ router.delete('/:id', auth, adminAuth, async (req, res) => {
         success: false,
         message: 'Banner not found'
       });
+    }
+
+    // Delete images from Cloudinary if exists
+    if (banner.image) {
+      if (banner.image.publicId) {
+        try {
+          await deleteImage(banner.image.publicId);
+        } catch (deleteError) {
+          console.log('Image deletion warning:', deleteError.message);
+        }
+      }
     }
 
     await Banner.findByIdAndDelete(req.params.id);

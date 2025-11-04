@@ -2,6 +2,7 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const { auth, adminAuth, adminOrTrainerAuth, adminOrTrainerOrStaffAuth } = require('../middleware/auth');
+const Email = require('../utils/email');
 
 // Classes Model (simplified for now)
 const Class = require('../models/Class');
@@ -37,10 +38,11 @@ router.get('/', auth, adminOrTrainerOrStaffAuth, async (req, res) => {
     }
 
     const classes = await Class.find(query)
-      .populate('trainer', 'firstName lastName email phone')
+      .populate('trainer', 'firstName lastName email phone profileImage')
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(limit);
+      .limit(limit)
+      .lean(); // Use .lean() for better performance
 
     const total = await Class.countDocuments(query);
 
@@ -70,7 +72,7 @@ router.get('/:id', auth, adminOrTrainerAuth, async (req, res) => {
   try {
     const classData = await Class.findById(req.params.id)
       .populate('trainer', 'firstName lastName email phone')
-      .populate('members', 'firstName lastName email phone');
+        .populate('members', 'firstName lastName email phone profileImage');
 
     if (!classData) {
       return res.status(404).json({
@@ -279,7 +281,9 @@ router.put('/:id', auth, adminAuth, [
 // Delete class (Admin only)
 router.delete('/:id', auth, adminAuth, async (req, res) => {
   try {
-    const classData = await Class.findByIdAndDelete(req.params.id);
+    const classData = await Class.findById(req.params.id)
+      .populate('members', 'firstName lastName email')
+      .populate('trainer', 'firstName lastName email');
 
     if (!classData) {
       return res.status(404).json({
@@ -287,6 +291,33 @@ router.delete('/:id', auth, adminAuth, async (req, res) => {
         message: 'Class not found'
       });
     }
+
+    // Send class cancellation emails to all enrolled members
+    if (classData.members && classData.members.length > 0) {
+      const emailPromises = classData.members.map(async (member) => {
+        if (member.email) {
+          try {
+            const html = Email.templates.classCancelledTemplate({
+              firstName: member.firstName,
+              className: classData.name,
+              classType: classData.type,
+              cancellationDate: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+              reason: 'Class cancelled by admin'
+            });
+            await Email.sendEmail({
+              to: member.email,
+              subject: `${classData.name} Class Has Been Cancelled`,
+              html
+            });
+          } catch (e) {
+            console.error(`Error sending cancellation email to ${member.email}:`, e.message);
+          }
+        }
+      });
+      await Promise.all(emailPromises);
+    }
+
+    await Class.findByIdAndDelete(req.params.id);
 
     res.json({
       success: true,
@@ -363,6 +394,28 @@ router.post('/:id/members', auth, adminOrTrainerAuth, [
       { path: 'members', select: 'firstName lastName email phone' }
     ]);
 
+    // Send class enrollment email
+    try {
+      if (member.email) {
+        const html = Email.templates.classEnrolledTemplate({
+          firstName: member.firstName,
+          className: classData.name,
+          classType: classData.type,
+          trainerName: classData.trainer ? `${classData.trainer.firstName} ${classData.trainer.lastName}` : 'TBA',
+          schedule: classData.schedule || [],
+          location: classData.location || 'Main Gym',
+          startDate: classData.schedule?.[0]?.startTime || new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+        });
+        await Email.sendEmail({
+          to: member.email,
+          subject: `You're Enrolled in ${classData.name}`,
+          html
+        });
+      }
+    } catch (e) {
+      console.error('Class enrollment email error:', e.message);
+    }
+
     res.json({
       success: true,
       message: 'Member added to class successfully',
@@ -389,6 +442,9 @@ router.delete('/:id/members/:memberId', auth, adminOrTrainerAuth, async (req, re
       });
     }
 
+    // Get member before removal
+    const member = await User.findById(req.params.memberId);
+    
     // Remove member from class
     classData.members = classData.members.filter(
       memberId => memberId.toString() !== req.params.memberId
@@ -400,6 +456,26 @@ router.delete('/:id/members/:memberId', auth, adminOrTrainerAuth, async (req, re
       { path: 'trainer', select: 'firstName lastName email phone' },
       { path: 'members', select: 'firstName lastName email phone' }
     ]);
+
+    // Send class cancellation email if member exists
+    if (member && member.email) {
+      try {
+        const html = Email.templates.classCancelledTemplate({
+          firstName: member.firstName,
+          className: classData.name,
+          classType: classData.type,
+          cancellationDate: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+          reason: 'Removed from class'
+        });
+        await Email.sendEmail({
+          to: member.email,
+          subject: `You've Been Removed from ${classData.name}`,
+          html
+        });
+      } catch (e) {
+        console.error('Class cancellation email error:', e.message);
+      }
+    }
 
     res.json({
       success: true,
@@ -421,7 +497,7 @@ router.get('/trainer/:trainerId', auth, adminOrTrainerAuth, async (req, res) => 
   try {
     const classes = await Class.find({ trainer: req.params.trainerId })
       .populate('trainer', 'firstName lastName email phone')
-      .populate('members', 'firstName lastName email phone')
+        .populate('members', 'firstName lastName email phone profileImage')
       .sort({ createdAt: -1 });
 
     res.json({

@@ -121,6 +121,18 @@ membershipSchema.pre('save', function(next) {
   next();
 });
 
+// Database indexes for performance optimization
+membershipPlanSchema.index({ isActive: 1 });
+membershipPlanSchema.index({ price: 1 });
+membershipPlanSchema.index({ createdAt: -1 });
+
+membershipSchema.index({ member: 1, status: 1 });
+membershipSchema.index({ plan: 1 });
+membershipSchema.index({ status: 1, endDate: 1 });
+membershipSchema.index({ startDate: 1, endDate: 1 });
+membershipSchema.index({ createdAt: -1 });
+membershipSchema.index({ member: 1, createdAt: -1 });
+
 const MembershipPlan = mongoose.model('MembershipPlan', membershipPlanSchema);
 const Membership = mongoose.model('Membership', membershipSchema);
 

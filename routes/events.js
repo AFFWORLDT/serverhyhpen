@@ -1,45 +1,13 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
 const Event = require('../models/Event');
 const { auth, adminAuth } = require('../middleware/auth');
+const { createCloudinaryStorage, deleteImage } = require('../utils/cloudinary');
 
 const router = express.Router();
 
-// Configure multer for image uploads
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const uploadPath = 'uploads/events';
-    if (!fs.existsSync(uploadPath)) {
-      fs.mkdirSync(uploadPath, { recursive: true });
-    }
-    cb(null, uploadPath);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
-
-const upload = multer({
-  storage: storage,
-  limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB limit
-  },
-  fileFilter: function (req, file, cb) {
-    const allowedTypes = /jpeg|jpg|png|gif|webp|svg/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
-    
-    if (mimetype && extname) {
-      return cb(null, true);
-    } else {
-      cb(new Error('Only image files are allowed!'));
-    }
-  }
-});
+// Configure Cloudinary for image uploads
+const upload = createCloudinaryStorage('events', ['jpg', 'jpeg', 'png', 'gif', 'webp'], 10485760); // 10MB
 
 // Get all events (Admin only)
 router.get('/', auth, adminAuth, async (req, res) => {
@@ -432,23 +400,32 @@ router.post('/', auth, adminAuth, upload.fields([
       seo
     } = req.body;
 
-    // Handle file uploads
+    // Handle file uploads from Cloudinary
     let image = null;
     let gallery = [];
 
     if (req.files) {
-      if (req.files.image) {
+      if (req.files.image && req.files.image[0]) {
+        const uploadedFile = req.files.image[0];
         image = {
-          url: `/uploads/events/${req.files.image[0].filename}`,
-          alt: req.body.imageAlt || ''
+          url: uploadedFile.secure_url || uploadedFile.url,
+          publicId: uploadedFile.public_id,
+          alt: req.body.imageAlt || '',
+          width: uploadedFile.width,
+          height: uploadedFile.height,
+          format: uploadedFile.format
         };
       }
 
-      if (req.files.gallery) {
+      if (req.files.gallery && req.files.gallery.length > 0) {
         gallery = req.files.gallery.map(file => ({
-          url: `/uploads/events/${file.filename}`,
+          url: file.secure_url || file.url,
+          publicId: file.public_id,
           alt: '',
-          caption: ''
+          caption: '',
+          width: file.width,
+          height: file.height,
+          format: file.format
         }));
       }
     }
@@ -596,20 +573,51 @@ router.put('/:id', auth, adminAuth, upload.fields([
       }
     });
 
-    // Handle file uploads
+    // Handle file uploads from Cloudinary
     if (req.files) {
-      if (req.files.image) {
+      if (req.files.image && req.files.image[0]) {
+        // Delete old image from Cloudinary if exists
+        if (event.image && event.image.publicId) {
+          try {
+            await deleteImage(event.image.publicId);
+          } catch (deleteError) {
+            console.log('Old image deletion warning:', deleteError.message);
+          }
+        }
+
+        const uploadedFile = req.files.image[0];
         updates.image = {
-          url: `/uploads/events/${req.files.image[0].filename}`,
-          alt: req.body.imageAlt || ''
+          url: uploadedFile.secure_url || uploadedFile.url,
+          publicId: uploadedFile.public_id,
+          alt: req.body.imageAlt || event.image?.alt || '',
+          width: uploadedFile.width,
+          height: uploadedFile.height,
+          format: uploadedFile.format
         };
       }
 
-      if (req.files.gallery) {
+      if (req.files.gallery && req.files.gallery.length > 0) {
+        // Delete old gallery images if exists
+        if (event.gallery && event.gallery.length > 0) {
+          for (const oldImage of event.gallery) {
+            if (oldImage.publicId) {
+              try {
+                await deleteImage(oldImage.publicId);
+              } catch (deleteError) {
+                console.log('Old gallery image deletion warning:', deleteError.message);
+              }
+            }
+          }
+        }
+
         updates.gallery = req.files.gallery.map(file => ({
-          url: `/uploads/events/${file.filename}`,
+          url: file.secure_url || file.url,
+          publicId: file.public_id,
           alt: '',
-          caption: ''
+          caption: '',
+          width: file.width,
+          height: file.height,
+          format: file.format
         }));
       }
     }
@@ -686,6 +694,27 @@ router.delete('/:id', auth, adminAuth, async (req, res) => {
         success: false,
         message: 'Event not found'
       });
+    }
+
+    // Delete images from Cloudinary if exists
+    if (event.image && event.image.publicId) {
+      try {
+        await deleteImage(event.image.publicId);
+      } catch (deleteError) {
+        console.log('Image deletion warning:', deleteError.message);
+      }
+    }
+
+    if (event.gallery && event.gallery.length > 0) {
+      for (const image of event.gallery) {
+        if (image.publicId) {
+          try {
+            await deleteImage(image.publicId);
+          } catch (deleteError) {
+            console.log('Gallery image deletion warning:', deleteError.message);
+          }
+        }
+      }
     }
 
     await Event.findByIdAndDelete(req.params.id);

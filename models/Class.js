@@ -82,7 +82,17 @@ const classSchema = new mongoose.Schema({
   timestamps: true
 });
 
+// Database indexes for performance optimization
+classSchema.index({ trainer: 1, status: 1 });
+classSchema.index({ status: 1, createdAt: -1 });
+classSchema.index({ name: 1 }, { unique: true });
+classSchema.index({ type: 1 });
+classSchema.index({ difficulty: 1 });
+classSchema.index({ members: 1 });
+classSchema.index({ createdAt: -1 });
+
 module.exports = mongoose.model('Class', classSchema);
+
 
 
 

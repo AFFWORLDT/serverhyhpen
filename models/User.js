@@ -422,4 +422,22 @@ userSchema.pre('save', function(next) {
   next();
 });
 
+// Database indexes for performance optimization
+userSchema.index({ email: 1 }, { unique: true });
+userSchema.index({ role: 1, isActive: 1 });
+userSchema.index({ role: 1, createdAt: -1 });
+userSchema.index({ assignedTrainer: 1 });
+userSchema.index({ membershipStatus: 1 });
+userSchema.index({ membershipValidityStart: 1, membershipValidityEnd: 1 });
+userSchema.index({ kycStatus: 1 });
+userSchema.index({ firstName: 1, lastName: 1 });
+userSchema.index({ phone: 1 });
+userSchema.index({ createdAt: -1 });
+userSchema.index({ lastLogin: -1 });
+userSchema.index({ 'address.city': 1 });
+userSchema.index({ specialization: 1 });
+userSchema.index({ department: 1 });
+userSchema.index({ position: 1 });
+userSchema.index({ isActive: 1, role: 1 });
+
 module.exports = mongoose.model('User', userSchema);

@@ -76,5 +76,15 @@ paymentSchema.pre('save', function(next) {
   next();
 });
 
+// Database indexes for performance optimization
+paymentSchema.index({ member: 1, createdAt: -1 });
+paymentSchema.index({ status: 1, createdAt: -1 });
+paymentSchema.index({ paymentDate: -1 });
+paymentSchema.index({ receiptNumber: 1 }, { unique: true, sparse: true });
+paymentSchema.index({ transactionId: 1 }, { unique: true, sparse: true });
+paymentSchema.index({ membership: 1 });
+paymentSchema.index({ processedBy: 1 });
+paymentSchema.index({ paymentMethod: 1 });
+
 module.exports = mongoose.model('Payment', paymentSchema);
 

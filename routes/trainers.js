@@ -100,7 +100,7 @@ router.get('/', auth, async (req, res) => {
     }
 
     const includeWorkingHours = req.query.includeWorkingHours === 'true';
-    
+
     const trainers = await User.find(query)
       .select('-password')
       .sort({ createdAt: -1 })

@@ -477,12 +477,13 @@ router.get('/', auth, async (req, res) => {
     }
 
     const payments = await Payment.find(query)
-      .populate('member', 'firstName lastName email phone')
-      .populate('membership')
+      .populate('member', 'firstName lastName email phone profileImage')
+      .populate('membership', 'plan name status')
       .populate('processedBy', 'firstName lastName')
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(limit);
+      .limit(limit)
+      .lean(); // Use .lean() for better performance
 
     const total = await Payment.countDocuments(query);
 
@@ -656,7 +657,7 @@ router.get('/:id', auth, async (req, res) => {
   }
   try {
     const payment = await Payment.findById(req.params.id)
-      .populate('member', 'firstName lastName email phone')
+        .populate('member', 'firstName lastName email phone profileImage')
       .populate('membership')
       .populate('processedBy', 'firstName lastName');
 
@@ -727,6 +728,27 @@ router.put('/:id/status', auth, adminAuth, [
         success: false,
         message: 'Payment not found'
       });
+    }
+
+    // Send refund email if status is refunded
+    if (status === 'refunded' && payment.member?.email) {
+      try {
+        const html = Email.templates.refundProcessedTemplate({
+          firstName: payment.member.firstName,
+          refundAmount: payment.amount,
+          originalPaymentDate: new Date(payment.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+          refundDate: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+          receiptNumber: payment.receiptNumber,
+          reason: notes || 'Refund processed'
+        });
+        await Email.sendEmail({
+          to: payment.member.email,
+          subject: `Refund Processed - ${payment.receiptNumber}`,
+          html
+        });
+      } catch (e) {
+        console.error('Refund email error:', e.message);
+      }
     }
 
     res.json({
@@ -870,6 +892,133 @@ router.get('/stats/summary', auth, adminAuth, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Server error while fetching payment statistics'
+    });
+  }
+});
+
+// Generate invoice (Admin only)
+router.post('/:id/invoice', auth, adminAuth, async (req, res) => {
+  try {
+    const payment = await Payment.findById(req.params.id)
+        .populate('member', 'firstName lastName email phone profileImage')
+      .populate('membership')
+      .populate('processedBy', 'firstName lastName');
+
+    if (!payment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Payment not found'
+      });
+    }
+
+    // Generate invoice number
+    const invoiceNumber = `INV-${Date.now()}-${payment._id.toString().slice(-6)}`;
+
+    // Send invoice email
+    try {
+      if (payment.member?.email) {
+        const html = Email.templates.invoiceGeneratedTemplate({
+          firstName: payment.member.firstName,
+          invoiceNumber,
+          amount: payment.amount,
+          paymentMethod: payment.paymentMethod,
+          description: payment.description || 'Gym Membership Payment',
+          dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+          invoiceDate: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+        });
+        await Email.sendEmail({
+          to: payment.member.email,
+          subject: `Invoice ${invoiceNumber} - Payment Required`,
+          html
+        });
+      }
+    } catch (e) {
+      console.error('Invoice email error:', e.message);
+    }
+
+    res.json({
+      success: true,
+      message: 'Invoice generated and sent successfully',
+      data: { invoiceNumber, payment }
+    });
+
+  } catch (error) {
+    console.error('Generate invoice error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while generating invoice'
+    });
+  }
+});
+
+// Process refund (Admin only)
+router.post('/:id/refund', auth, adminAuth, [
+  body('amount').optional().isFloat({ min: 0 }).withMessage('Amount must be a positive number'),
+  body('reason').optional().trim().isLength({ min: 5 }).withMessage('Reason must be at least 5 characters')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: errors.array()
+      });
+    }
+
+    const { amount, reason } = req.body;
+
+    const payment = await Payment.findById(req.params.id)
+        .populate('member', 'firstName lastName email phone profileImage')
+      .populate('membership')
+      .populate('processedBy', 'firstName lastName');
+
+    if (!payment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Payment not found'
+      });
+    }
+
+    const refundAmount = amount || payment.amount;
+
+    // Update payment status to refunded
+    payment.status = 'refunded';
+    payment.notes = reason || 'Refund processed';
+    await payment.save();
+
+    // Send refund email
+    try {
+      if (payment.member?.email) {
+        const html = Email.templates.refundProcessedTemplate({
+          firstName: payment.member.firstName,
+          refundAmount,
+          originalPaymentDate: new Date(payment.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+          refundDate: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+          receiptNumber: payment.receiptNumber,
+          reason: reason || 'Refund processed'
+        });
+        await Email.sendEmail({
+          to: payment.member.email,
+          subject: `Refund Processed - ${payment.receiptNumber}`,
+          html
+        });
+      }
+    } catch (e) {
+      console.error('Refund email error:', e.message);
+    }
+
+    res.json({
+      success: true,
+      message: 'Refund processed successfully',
+      data: { payment, refundAmount }
+    });
+
+  } catch (error) {
+    console.error('Process refund error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while processing refund'
     });
   }
 });

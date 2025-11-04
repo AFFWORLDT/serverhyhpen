@@ -583,6 +583,7 @@ router.post('/login', [
           role: user.role,
           dateOfBirth: user.dateOfBirth,
           gender: user.gender,
+          profileImage: user.profileImage,
           lastLogin: user.lastLogin,
           // Include staff-specific fields for sub-role handling
           department: user.department,
@@ -615,9 +616,15 @@ router.get('/profile', auth, async (req, res) => {
       });
     }
 
+    // Ensure profileImage is included in response (even if null)
+    const userData = user.toObject();
+    if (userData.profileImage === undefined) {
+      userData.profileImage = null;
+    }
+
     res.json({
       success: true,
-      data: { user }
+      data: { user: userData }
     });
 
   } catch (error) {
@@ -657,6 +664,14 @@ router.put('/profile', auth, [
       }
     });
 
+    const oldUser = await User.findById(req.user.userId).select('-password');
+    if (!oldUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
     const user = await User.findByIdAndUpdate(
       req.user.userId,
       updates,
@@ -670,10 +685,41 @@ router.put('/profile', auth, [
       });
     }
 
+    // Track changes for email
+    const changes = [];
+    Object.keys(updates).forEach(key => {
+      if (oldUser[key] !== user[key]) {
+        changes.push(`${key.charAt(0).toUpperCase() + key.slice(1)}`);
+      }
+    });
+
+    // Send profile updated email
+    if (changes.length > 0) {
+      try {
+        const html = Email.templates.profileUpdatedTemplate({
+          firstName: user.firstName,
+          changes: changes
+        });
+        await Email.sendEmail({
+          to: user.email,
+          subject: 'Profile Updated - Hyphen Wellness',
+          html
+        });
+      } catch (e) {
+        console.error('Profile update email error:', e.message);
+      }
+    }
+
+    // Ensure profileImage is included in response (even if null)
+    const userData = user.toObject();
+    if (userData.profileImage === undefined) {
+      userData.profileImage = null;
+    }
+
     res.json({
       success: true,
       message: 'Profile updated successfully',
-      data: { user }
+      data: { user: userData }
     });
 
   } catch (error) {
@@ -724,6 +770,22 @@ router.put('/change-password', auth, [
     user.password = newPassword;
     await user.save();
 
+    // Send password changed email
+    try {
+      const html = Email.templates.passwordChangedTemplate({
+        firstName: user.firstName,
+        changedAt: new Date().toLocaleString('en-US', { timeZone: 'Asia/Dubai' }),
+        ipAddress: req.ip || req.connection.remoteAddress
+      });
+      await Email.sendEmail({
+        to: user.email,
+        subject: 'Password Changed - Hyphen Wellness',
+        html
+      });
+    } catch (e) {
+      console.error('Password changed email error:', e.message);
+    }
+
     res.json({
       success: true,
       message: 'Password changed successfully'
@@ -766,6 +828,190 @@ router.put('/update-role/:id', async (req, res) => {
       success: false,
       message: 'Error updating user role',
       error: error.message
+    });
+  }
+});
+
+// Forgot password - Request password reset
+router.post('/forgot-password', [
+  body('email').isEmail().normalizeEmail().withMessage('Please provide a valid email')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: errors.array()
+      });
+    }
+
+    const { email } = req.body;
+
+    const user = await User.findOne({ email: email.toLowerCase() });
+    
+    // Don't reveal if user exists for security
+    if (!user) {
+      return res.json({
+        success: true,
+        message: 'If an account with that email exists, a password reset link has been sent'
+      });
+    }
+
+    // Generate reset token
+    const resetToken = jwt.sign(
+      { userId: user._id, email: user.email },
+      JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+
+    // Send password reset email using SMTP templates if available
+    try {
+      const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
+      
+      // Try to use SMTP templates first
+      const smtpSettings = await SMTPSettings.findOne({ isActive: true });
+      
+      if (smtpSettings && smtpSettings.emailTemplates?.passwordReset) {
+        // Use SMTP template
+        const passwordResetTemplate = smtpSettings.emailTemplates.passwordReset;
+        let emailSubject = passwordResetTemplate.subject || 'Password Reset Request - Hyphen Wellness';
+        let emailHtml = passwordResetTemplate.template || '';
+        
+        // Replace template variables
+        emailSubject = emailSubject.replace(/{{firstName}}/g, user.firstName);
+        emailSubject = emailSubject.replace(/{{email}}/g, user.email);
+        emailSubject = emailSubject.replace(/{{resetLink}}/g, resetLink);
+        emailSubject = emailSubject.replace(/{{expirationTime}}/g, '1 hour');
+        
+        emailHtml = emailHtml.replace(/{{firstName}}/g, user.firstName);
+        emailHtml = emailHtml.replace(/{{email}}/g, user.email);
+        emailHtml = emailHtml.replace(/{{resetLink}}/g, resetLink);
+        emailHtml = emailHtml.replace(/{{expirationTime}}/g, '1 hour');
+        
+        // Send email via SMTP
+        await smtpSettings.sendEmail(user.email, emailSubject, emailHtml);
+        console.log(`✅ Password reset email sent to ${user.email} via SMTP`);
+      } else {
+        // Fallback to old template
+        const html = Email.templates.passwordResetTemplate({
+          firstName: user.firstName,
+          resetLink,
+          expirationTime: '1 hour'
+        });
+        await Email.sendEmail({
+          to: user.email,
+          subject: 'Password Reset Request - Hyphen Wellness',
+          html
+        });
+        console.log(`✅ Password reset email sent to ${user.email} via fallback`);
+      }
+    } catch (e) {
+      console.error('Password reset email error:', e.message);
+    }
+
+    res.json({
+      success: true,
+      message: 'If an account with that email exists, a password reset link has been sent'
+    });
+
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while processing password reset request'
+    });
+  }
+});
+
+// Reset password - Reset password with token
+router.post('/reset-password', [
+  body('token').notEmpty().withMessage('Reset token is required'),
+  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: errors.array()
+      });
+    }
+
+    const { token, password } = req.body;
+
+    // Verify token
+    let decoded;
+    try {
+      decoded = jwt.verify(token, JWT_SECRET);
+    } catch (error) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired reset token'
+      });
+    }
+
+    const user = await User.findById(decoded.userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Hash new password
+    const bcrypt = require('bcryptjs');
+    const hashedPassword = await bcrypt.hash(password, 12);
+
+    // Update password
+    user.password = hashedPassword;
+    await user.save();
+
+    // Send password changed email using SMTP templates if available
+    try {
+      const changeDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+      const changedAt = new Date().toLocaleString('en-US', { timeZone: 'Asia/Dubai' });
+      
+      // Try to use SMTP templates first
+      const smtpSettings = await SMTPSettings.findOne({ isActive: true });
+      
+      if (smtpSettings && smtpSettings.emailTemplates?.passwordReset) {
+        // Use SMTP template (password changed notification)
+        let emailSubject = 'Password Changed Successfully - Hyphen Wellness';
+        let emailHtml = `Hi ${user.firstName},<br><br>Your password has been successfully changed on ${changeDate}.<br><br>If you did not make this change, please contact us immediately.<br><br>Best regards,<br>Hyphen Wellness Team`;
+        
+        // Send email via SMTP
+        await smtpSettings.sendEmail(user.email, emailSubject, emailHtml);
+        console.log(`✅ Password changed email sent to ${user.email} via SMTP`);
+      } else {
+        // Fallback to old template
+        const html = Email.templates.passwordChangedTemplate({
+          firstName: user.firstName,
+          changedAt,
+          ipAddress: req.ip || req.connection.remoteAddress
+        });
+        await Email.sendEmail({
+          to: user.email,
+          subject: 'Password Changed Successfully - Hyphen Wellness',
+          html
+        });
+        console.log(`✅ Password changed email sent to ${user.email} via fallback`);
+      }
+    } catch (e) {
+      console.error('Password changed email error:', e.message);
+    }
+
+    res.json({
+      success: true,
+      message: 'Password reset successfully'
+    });
+
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while resetting password'
     });
   }
 });

@@ -1,45 +1,13 @@
 const express = require('express');
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const { auth } = require('../middleware/auth');
+const { createCloudinaryStorage, deleteImage } = require('../utils/cloudinary');
 
 const router = express.Router();
 
-// Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const uploadPath = 'uploads/profiles/';
-    if (!fs.existsSync(uploadPath)) {
-      fs.mkdirSync(uploadPath, { recursive: true });
-    }
-    cb(null, uploadPath);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
-
-const upload = multer({
-  storage: storage,
-  limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB limit
-  },
-  fileFilter: function (req, file, cb) {
-    const allowedTypes = /jpeg|jpg|png|gif/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
-    
-    if (mimetype && extname) {
-      return cb(null, true);
-    } else {
-      cb(new Error('Only image files are allowed'));
-    }
-  }
-});
+// Configure Cloudinary for file uploads
+const upload = createCloudinaryStorage('profiles', ['jpg', 'jpeg', 'png', 'gif', 'webp'], 5242880); // 5MB
 
 // Get user profile
 router.get('/profile', auth, async (req, res) => {
@@ -52,9 +20,15 @@ router.get('/profile', auth, async (req, res) => {
       });
     }
 
+    // Ensure profileImage is included in response (even if null)
+    const userData = user.toObject();
+    if (!userData.profileImage) {
+      userData.profileImage = null;
+    }
+
     res.json({
       success: true,
-      data: { user }
+      data: { user: userData }
     });
   } catch (error) {
     console.error('Get profile error:', error);
@@ -158,20 +132,29 @@ router.post('/profile/image', auth, upload.single('profileImage'), async (req, r
       });
     }
 
-    // Delete old profile image if exists
-    if (user.profileImage && fs.existsSync(user.profileImage)) {
-      fs.unlinkSync(user.profileImage);
+    // Delete old profile image from Cloudinary if exists
+    if (user.profileImage) {
+      try {
+        await deleteImage(user.profileImage);
+      } catch (deleteError) {
+        console.log('Old image deletion warning:', deleteError.message);
+        // Continue even if old image deletion fails
+      }
     }
 
-    // Update user with new image path
-    user.profileImage = req.file.path;
+    // Update user with new Cloudinary URL
+    user.profileImage = req.file.secure_url || req.file.url;
     await user.save();
 
     res.json({
       success: true,
       message: 'Profile image uploaded successfully',
       data: {
-        profileImage: user.profileImage
+        profileImage: user.profileImage,
+        publicId: req.file.public_id,
+        width: req.file.width,
+        height: req.file.height,
+        format: req.file.format
       }
     });
   } catch (error) {
@@ -240,9 +223,19 @@ router.delete('/profile', auth, async (req, res) => {
       });
     }
     
+    // Delete profile image from Cloudinary if exists
+    if (user.profileImage) {
+      try {
+        await deleteImage(user.profileImage);
+      } catch (deleteError) {
+        console.log('Image deletion warning:', deleteError.message);
+      }
+    }
+
     // Soft delete - set isActive to false
     user.isActive = false;
     user.email = `${user.email}_deleted_${Date.now()}`;
+    user.profileImage = null;
     await user.save();
     
     res.json({

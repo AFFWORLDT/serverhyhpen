@@ -1,45 +1,13 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
 const News = require('../models/News');
 const { auth, adminAuth } = require('../middleware/auth');
+const { createCloudinaryStorage, deleteImage } = require('../utils/cloudinary');
 
 const router = express.Router();
 
-// Configure multer for image uploads
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const uploadPath = 'uploads/news';
-    if (!fs.existsSync(uploadPath)) {
-      fs.mkdirSync(uploadPath, { recursive: true });
-    }
-    cb(null, uploadPath);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-  }
-});
-
-const upload = multer({
-  storage: storage,
-  limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB limit
-  },
-  fileFilter: function (req, file, cb) {
-    const allowedTypes = /jpeg|jpg|png|gif|webp/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
-    
-    if (mimetype && extname) {
-      return cb(null, true);
-    } else {
-      cb(new Error('Only image files are allowed!'));
-    }
-  }
-});
+// Configure Cloudinary for image uploads
+const upload = createCloudinaryStorage('news', ['jpg', 'jpeg', 'png', 'gif', 'webp'], 5242880); // 5MB
 
 // Get all news (Admin only)
 router.get('/', auth, adminAuth, async (req, res) => {
@@ -296,24 +264,33 @@ router.post('/', auth, adminAuth, upload.fields([
       socialMedia
     } = req.body;
 
-    // Handle file uploads
+    // Handle file uploads from Cloudinary
     let featuredImage = null;
     let gallery = [];
 
     if (req.files) {
-      if (req.files.featuredImage) {
+      if (req.files.featuredImage && req.files.featuredImage[0]) {
+        const uploadedFile = req.files.featuredImage[0];
         featuredImage = {
-          url: `/uploads/news/${req.files.featuredImage[0].filename}`,
+          url: uploadedFile.secure_url || uploadedFile.url,
+          publicId: uploadedFile.public_id,
           alt: req.body.featuredImageAlt || '',
-          caption: req.body.featuredImageCaption || ''
+          caption: req.body.featuredImageCaption || '',
+          width: uploadedFile.width,
+          height: uploadedFile.height,
+          format: uploadedFile.format
         };
       }
 
-      if (req.files.gallery) {
+      if (req.files.gallery && req.files.gallery.length > 0) {
         gallery = req.files.gallery.map(file => ({
-          url: `/uploads/news/${file.filename}`,
+          url: file.secure_url || file.url,
+          publicId: file.public_id,
           alt: '',
-          caption: ''
+          caption: '',
+          width: file.width,
+          height: file.height,
+          format: file.format
         }));
       }
     }
@@ -415,21 +392,52 @@ router.put('/:id', auth, adminAuth, upload.fields([
       }
     });
 
-    // Handle file uploads
+    // Handle file uploads from Cloudinary
     if (req.files) {
-      if (req.files.featuredImage) {
+      if (req.files.featuredImage && req.files.featuredImage[0]) {
+        // Delete old image from Cloudinary if exists
+        if (news.featuredImage && news.featuredImage.publicId) {
+          try {
+            await deleteImage(news.featuredImage.publicId);
+          } catch (deleteError) {
+            console.log('Old image deletion warning:', deleteError.message);
+          }
+        }
+
+        const uploadedFile = req.files.featuredImage[0];
         updates.featuredImage = {
-          url: `/uploads/news/${req.files.featuredImage[0].filename}`,
-          alt: req.body.featuredImageAlt || '',
-          caption: req.body.featuredImageCaption || ''
+          url: uploadedFile.secure_url || uploadedFile.url,
+          publicId: uploadedFile.public_id,
+          alt: req.body.featuredImageAlt || news.featuredImage?.alt || '',
+          caption: req.body.featuredImageCaption || news.featuredImage?.caption || '',
+          width: uploadedFile.width,
+          height: uploadedFile.height,
+          format: uploadedFile.format
         };
       }
 
-      if (req.files.gallery) {
+      if (req.files.gallery && req.files.gallery.length > 0) {
+        // Delete old gallery images if exists
+        if (news.gallery && news.gallery.length > 0) {
+          for (const oldImage of news.gallery) {
+            if (oldImage.publicId) {
+              try {
+                await deleteImage(oldImage.publicId);
+              } catch (deleteError) {
+                console.log('Old gallery image deletion warning:', deleteError.message);
+              }
+            }
+          }
+        }
+
         updates.gallery = req.files.gallery.map(file => ({
-          url: `/uploads/news/${file.filename}`,
+          url: file.secure_url || file.url,
+          publicId: file.public_id,
           alt: '',
-          caption: ''
+          caption: '',
+          width: file.width,
+          height: file.height,
+          format: file.format
         }));
       }
     }
@@ -488,6 +496,27 @@ router.delete('/:id', auth, adminAuth, async (req, res) => {
         success: false,
         message: 'News article not found'
       });
+    }
+
+    // Delete images from Cloudinary if exists
+    if (news.featuredImage && news.featuredImage.publicId) {
+      try {
+        await deleteImage(news.featuredImage.publicId);
+      } catch (deleteError) {
+        console.log('Image deletion warning:', deleteError.message);
+      }
+    }
+
+    if (news.gallery && news.gallery.length > 0) {
+      for (const image of news.gallery) {
+        if (image.publicId) {
+          try {
+            await deleteImage(image.publicId);
+          } catch (deleteError) {
+            console.log('Gallery image deletion warning:', deleteError.message);
+          }
+        }
+      }
     }
 
     await News.findByIdAndDelete(req.params.id);

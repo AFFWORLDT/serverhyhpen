@@ -3,6 +3,7 @@ const { body, validationResult } = require('express-validator');
 const { MembershipPlan, Membership } = require('../models/Membership');
 const User = require('../models/User');
 const { auth, adminAuth, adminOrTrainerAuth, adminOrTrainerOrStaffAuth } = require('../middleware/auth');
+const Email = require('../utils/email');
 
 const router = express.Router();
 
@@ -331,10 +332,33 @@ router.post('/upgrade', auth, adminAuth, [
       });
     }
 
+    // Get old tier for comparison
+    const oldTier = member.membershipType || 'bronze';
+
     // Update member's membership tier
     member.membershipType = newTier.toLowerCase();
     member.membershipNotes = reason || `Upgraded to ${newTier} tier`;
     await member.save();
+
+    // Send membership upgraded email
+    try {
+      if (member.email) {
+        const html = Email.templates.membershipUpgradedTemplate({
+          firstName: member.firstName,
+          oldPlan: oldTier.charAt(0).toUpperCase() + oldTier.slice(1),
+          newPlan: newTier,
+          upgradeDate: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+          priceDifference: 0 // Can be calculated if needed
+        });
+        await Email.sendEmail({
+          to: member.email,
+          subject: `Congratulations! Your Membership Has Been Upgraded to ${newTier}`,
+          html
+        });
+      }
+    } catch (e) {
+      console.error('Membership upgraded email error:', e.message);
+    }
 
     // Log the upgrade
     console.log(`Member ${member.firstName} ${member.lastName} upgraded to ${newTier} tier`);
@@ -677,6 +701,27 @@ router.post('/', auth, adminOrTrainerOrStaffAuth, [
       { path: 'plan' }
     ]);
 
+    // Send membership assigned email
+    try {
+      if (membership.member?.email) {
+        const html = Email.templates.membershipAssignedTemplate({
+          firstName: membership.member.firstName,
+          membershipName: membership.plan?.name || 'Membership Plan',
+          startDate: membership.startDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+          endDate: membership.endDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+          price: membership.totalAmount,
+          features: membership.plan?.features || []
+        });
+        await Email.sendEmail({
+          to: membership.member.email,
+          subject: `Welcome! Your ${membership.plan?.name || 'Membership'} is Active`,
+          html
+        });
+      }
+    } catch (e) {
+      console.error('Membership assigned email error:', e.message);
+    }
+
     res.status(201).json({
       success: true,
       message: 'Membership created successfully',
@@ -737,6 +782,11 @@ router.put('/:id/status', auth, adminOrTrainerOrStaffAuth, [
 
     const { status, notes } = req.body;
 
+    // Get old membership for comparison
+    const oldMembership = await Membership.findById(req.params.id)
+      .populate('member', 'firstName lastName email phone')
+      .populate('plan');
+
     const membership = await Membership.findByIdAndUpdate(
       req.params.id,
       { status, notes },
@@ -751,6 +801,25 @@ router.put('/:id/status', auth, adminOrTrainerOrStaffAuth, [
         success: false,
         message: 'Membership not found'
       });
+    }
+
+    // Send membership cancelled email if status is cancelled
+    if (status === 'cancelled' && membership.member?.email) {
+      try {
+        const html = Email.templates.membershipCancelledTemplate({
+          firstName: membership.member.firstName,
+          membershipName: membership.plan?.name || 'Membership Plan',
+          cancellationDate: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+          reason: notes || 'Cancelled by admin'
+        });
+        await Email.sendEmail({
+          to: membership.member.email,
+          subject: `Your ${membership.plan?.name || 'Membership'} Has Been Cancelled`,
+          html
+        });
+      } catch (e) {
+        console.error('Membership cancelled email error:', e.message);
+      }
     }
 
     res.json({
@@ -825,6 +894,25 @@ router.post('/:id/renew', auth, adminOrTrainerOrStaffAuth, [
       { path: 'member', select: 'firstName lastName email phone' },
       { path: 'plan' }
     ]);
+
+    // Send membership renewed email
+    try {
+      if (membership.member?.email) {
+        const html = Email.templates.membershipRenewedTemplate({
+          firstName: membership.member.firstName,
+          membershipName: membership.plan?.name || 'Membership Plan',
+          newEndDate: membership.endDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+          price: membership.totalAmount
+        });
+        await Email.sendEmail({
+          to: membership.member.email,
+          subject: `Your ${membership.plan?.name || 'Membership'} Has Been Renewed`,
+          html
+        });
+      }
+    } catch (e) {
+      console.error('Membership renewed email error:', e.message);
+    }
 
     res.status(201).json({
       success: true,

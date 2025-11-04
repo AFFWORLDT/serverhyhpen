@@ -6,6 +6,7 @@ const User = require('../models/User');
 const Programme = require('../models/Programme');
 const TrainingSession = require('../models/TrainingSession');
 const { auth, adminAuth, adminOrTrainerOrStaffAuth } = require('../middleware/auth');
+const Email = require('../utils/email');
 
 const router = express.Router();
 
@@ -200,6 +201,28 @@ router.post('/', auth, adminOrTrainerOrStaffAuth, [
       { path: 'program', select: 'name' }
     ]);
 
+    // Send appointment booked email
+    try {
+      if (appointment.client && appointment.staff) {
+        const html = Email.templates.appointmentBookedTemplate({
+          firstName: appointment.client.firstName,
+          trainerName: `${appointment.staff.firstName} ${appointment.staff.lastName}`,
+          appointmentDate: appointment.startTime.toLocaleDateString('en-US', { timeZone: 'Asia/Dubai' }),
+          appointmentTime: appointment.startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Dubai' }),
+          duration: appointment.duration,
+          location: appointment.location,
+          notes: appointment.notes
+        });
+        await Email.sendEmail({
+          to: appointment.client.email,
+          subject: 'Appointment Booked - Hyphen Wellness',
+          html
+        });
+      }
+    } catch (e) {
+      console.error('Appointment booked email error:', e.message);
+    }
+
     res.status(201).json({ success: true, data: { appointment } });
   } catch (error) {
     console.error('Create appointment error:', error);
@@ -239,12 +262,38 @@ router.put('/:id', auth, adminOrTrainerOrStaffAuth, async (req, res) => {
     if (description !== undefined) appointment.description = description;
     appointment.updatedBy = req.user.userId;
 
+    const oldStartTime = appointment.startTime;
+    const oldDuration = appointment.duration;
+    
     await appointment.save();
     await appointment.populate([
       { path: 'client', select: 'firstName lastName email' },
       { path: 'staff', select: 'firstName lastName email staffTeam' },
       { path: 'program', select: 'name' }
     ]);
+
+    // Send appointment rescheduled email if time changed
+    if ((startTime || duration) && appointment.client && appointment.staff) {
+      try {
+        const html = Email.templates.appointmentRescheduledTemplate({
+          firstName: appointment.client.firstName,
+          trainerName: `${appointment.staff.firstName} ${appointment.staff.lastName}`,
+          oldDate: oldStartTime.toLocaleDateString('en-US', { timeZone: 'Asia/Dubai' }),
+          oldTime: oldStartTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Dubai' }),
+          newDate: appointment.startTime.toLocaleDateString('en-US', { timeZone: 'Asia/Dubai' }),
+          newTime: appointment.startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Dubai' }),
+          location: appointment.location,
+          reason: req.body.reason
+        });
+        await Email.sendEmail({
+          to: appointment.client.email,
+          subject: 'Appointment Rescheduled - Hyphen Wellness',
+          html
+        });
+      } catch (e) {
+        console.error('Appointment rescheduled email error:', e.message);
+      }
+    }
 
     res.json({ success: true, data: { appointment } });
   } catch (error) {
@@ -387,6 +436,32 @@ router.put('/:id/cancel', auth, async (req, res) => {
     appointment.cancelledBy = req.user.userId;
     appointment.cancellationReason = reason || 'Cancelled by user';
     await appointment.save();
+    
+    await appointment.populate([
+      { path: 'client', select: 'firstName lastName email' },
+      { path: 'staff', select: 'firstName lastName email staffTeam' }
+    ]);
+
+    // Send appointment cancelled email
+    if (appointment.client && appointment.staff) {
+      try {
+        const html = Email.templates.appointmentCancelledTemplate({
+          firstName: appointment.client.firstName,
+          trainerName: `${appointment.staff.firstName} ${appointment.staff.lastName}`,
+          appointmentDate: appointment.startTime.toLocaleDateString('en-US', { timeZone: 'Asia/Dubai' }),
+          appointmentTime: appointment.startTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Dubai' }),
+          reason: appointment.cancellationReason,
+          rescheduleUrl: 'http://localhost:3000/calendar'
+        });
+        await Email.sendEmail({
+          to: appointment.client.email,
+          subject: 'Appointment Cancelled - Hyphen Wellness',
+          html
+        });
+      } catch (e) {
+        console.error('Appointment cancelled email error:', e.message);
+      }
+    }
 
     res.json({ 
       success: true, 

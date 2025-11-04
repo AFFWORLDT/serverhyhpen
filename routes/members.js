@@ -8,8 +8,13 @@ const TrainingSession = require('../models/TrainingSession');
 const MemberPackage = require('../models/MemberPackage');
 const Appointment = require('../models/Appointment');
 const { auth, adminAuth, adminOrTrainerAuth, adminOrTrainerOrStaffAuth } = require('../middleware/auth');
+const Email = require('../utils/email');
+const { createCloudinaryStorage, deleteImage } = require('../utils/cloudinary');
 
 const router = express.Router();
+
+// Configure Cloudinary for profile image uploads
+const upload = createCloudinaryStorage('profiles', ['jpg', 'jpeg', 'png', 'gif', 'webp'], 5242880); // 5MB
 
 /**
  * @swagger
@@ -68,7 +73,7 @@ router.get('/', auth, async (req, res) => {
     if (req.user.role === 'member') {
       const member = await User.findById(req.user.userId)
         .select('-password')
-        .populate('assignedTrainer', 'firstName lastName email phone specialization');
+        .populate('assignedTrainer', 'firstName lastName email phone specialization profileImage');
       if (!member) {
         return res.status(404).json({
           success: false,
@@ -115,7 +120,8 @@ router.get('/', auth, async (req, res) => {
       .select('-password')
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(limit);
+      .limit(limit)
+      .lean(); // Use .lean() for better performance
 
     const total = await User.countDocuments(query);
 
@@ -183,7 +189,28 @@ router.post('/:id/assign-trainer', auth, adminAuth, [
     member.assignedTrainer = trainerId;
     await member.save();
 
-    await member.populate({ path: 'assignedTrainer', select: 'firstName lastName email' });
+    await member.populate({ path: 'assignedTrainer', select: 'firstName lastName email phone specialization profileImage' });
+
+    // Send trainer assignment email
+    try {
+      if (member.email && member.assignedTrainer) {
+        const html = Email.templates.trainerAssignedTemplate({
+          firstName: member.firstName,
+          trainerName: `${member.assignedTrainer.firstName} ${member.assignedTrainer.lastName}`,
+          trainerEmail: member.assignedTrainer.email,
+          trainerPhone: member.assignedTrainer.phone || 'N/A',
+          specialization: member.assignedTrainer.specialization || 'General Fitness',
+          assignmentDate: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+        });
+        await Email.sendEmail({
+          to: member.email,
+          subject: `Your Personal Trainer Assignment - ${member.assignedTrainer.firstName} ${member.assignedTrainer.lastName}`,
+          html
+        });
+      }
+    } catch (e) {
+      console.error('Trainer assignment email error:', e.message);
+    }
 
     res.json({ success: true, message: 'Trainer assigned successfully', data: { member } });
   } catch (error) {
@@ -261,6 +288,76 @@ router.get('/:id/membership/summary', auth, async (req, res) => {
   } catch (error) {
     console.error('Membership summary error:', error);
     res.status(500).json({ success: false, message: 'Failed to fetch membership summary' });
+  }
+});
+
+// Upload member profile image (Admin only) - MUST BE BEFORE /:id ROUTE
+router.post('/:id/profile-image', auth, adminAuth, upload.single('profileImage'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No image file provided'
+      });
+    }
+
+    const { id } = req.params;
+    
+    // Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid member ID format'
+      });
+    }
+
+    const member = await User.findById(id);
+    if (!member) {
+      return res.status(404).json({
+        success: false,
+        message: 'Member not found'
+      });
+    }
+
+    if (member.role !== 'member') {
+      return res.status(400).json({
+        success: false,
+        message: 'User is not a member'
+      });
+    }
+
+    // Delete old profile image from Cloudinary if exists
+    if (member.profileImage) {
+      try {
+        await deleteImage(member.profileImage);
+      } catch (deleteError) {
+        console.log('Old image deletion warning:', deleteError.message);
+        // Continue even if old image deletion fails
+      }
+    }
+
+    // Update member with new Cloudinary URL
+    member.profileImage = req.file.secure_url || req.file.url;
+    await member.save();
+
+    res.json({
+      success: true,
+      message: 'Profile image uploaded successfully',
+      data: {
+        profileImage: member.profileImage,
+        publicId: req.file.public_id,
+        width: req.file.width,
+        height: req.file.height,
+        format: req.file.format
+      }
+    });
+  } catch (error) {
+    console.error('Upload member profile image error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to upload profile image',
+      error: error.message
+    });
   }
 });
 
@@ -481,6 +578,21 @@ router.put('/:id/deactivate', auth, adminAuth, async (req, res) => {
       });
     }
 
+    // Send account deactivated email
+    try {
+      const html = Email.templates.accountDeactivatedTemplate({
+        firstName: member.firstName,
+        reason: req.body.reason || 'Account deactivated by administrator'
+      });
+      await Email.sendEmail({
+        to: member.email,
+        subject: 'Account Deactivated - Hyphen Wellness',
+        html
+      });
+    } catch (e) {
+      console.error('Account deactivation email error:', e.message);
+    }
+
     res.json({
       success: true,
       message: 'Member deactivated successfully',
@@ -510,6 +622,20 @@ router.put('/:id/reactivate', auth, adminAuth, async (req, res) => {
         success: false,
         message: 'Member not found'
       });
+    }
+
+    // Send account activated email
+    try {
+      const html = Email.templates.accountActivatedTemplate({
+        firstName: member.firstName
+      });
+      await Email.sendEmail({
+        to: member.email,
+        subject: 'Account Activated - Hyphen Wellness',
+        html
+      });
+    } catch (e) {
+      console.error('Account activation email error:', e.message);
     }
 
     res.json({
@@ -602,9 +728,28 @@ router.post('/:id/assign-programme', auth, adminOrTrainerAuth, [
     await member.save();
     
     await member.populate([
-      { path: 'assignedTrainer', select: 'firstName lastName email' },
+      { path: 'assignedTrainer', select: 'firstName lastName email phone specialization' },
       { path: 'assignedProgramme', select: 'name description duration_in_weeks' }
     ]);
+    
+    // Send programme assigned email
+    try {
+      const html = Email.templates.programmeAssignedTemplate({
+        firstName: member.firstName,
+        programmeName: programme.name,
+        trainerName: member.assignedTrainer ? `${member.assignedTrainer.firstName} ${member.assignedTrainer.lastName}` : null,
+        duration: `${programme.duration_in_weeks} weeks`,
+        sessions: programme.sessionCount || programme.duration_in_weeks * 2,
+        description: programme.description
+      });
+      await Email.sendEmail({
+        to: member.email,
+        subject: 'Training Programme Assigned - Hyphen Wellness',
+        html
+      });
+    } catch (e) {
+      console.error('Programme assignment email error:', e.message);
+    }
     
     res.json({
       success: true,
@@ -668,7 +813,7 @@ router.get('/:id/sessions', auth, adminOrTrainerOrStaffAuth, async (req, res) =>
     }
     
     const sessions = await TrainingSession.find(filter)
-      .populate('trainer', 'firstName lastName email')
+      .populate('trainer', 'firstName lastName email profileImage')
       .populate('programme', 'name description')
       .sort({ session_start_time: -1 });
     
@@ -726,7 +871,7 @@ router.get('/:id/stats', auth, adminOrTrainerOrStaffAuth, async (req, res) => {
     ]);
     
     const recentSessions = await TrainingSession.find({ member: id })
-      .populate('trainer', 'firstName lastName')
+      .populate('trainer', 'firstName lastName profileImage')
       .populate('programme', 'name')
       .sort({ session_start_time: -1 })
       .limit(5);
@@ -1040,7 +1185,7 @@ router.get('/export', auth, adminAuth, async (req, res) => {
   try {
     const members = await User.find({ role: 'member' })
       .select('firstName lastName email phone gender dateOfBirth address isActive createdAt')
-      .populate('assignedTrainer', 'firstName lastName')
+      .populate('assignedTrainer', 'firstName lastName profileImage')
       .lean();
 
     // Create CSV header

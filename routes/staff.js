@@ -111,7 +111,8 @@ router.get('/', auth, adminAuth, async (req, res) => {
       .populate('createdBy', 'firstName lastName email')
       .sort(sortObj)
       .skip(skip)
-      .limit(limit);
+      .limit(limit)
+      .lean(); // Use .lean() for better performance
 
     const total = await User.countDocuments(query);
 

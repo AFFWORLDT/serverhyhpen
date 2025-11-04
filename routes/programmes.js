@@ -39,7 +39,8 @@ router.get('/', auth, async (req, res) => {
       .populate('exercises.exercise', 'name description muscle_group difficulty_level')
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(limit);
+      .limit(limit)
+      .lean(); // Use .lean() for better performance
     
     const total = await Programme.countDocuments(filter);
     

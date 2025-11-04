@@ -240,6 +240,7 @@ app.use('/api/invoices', checkMongoConnection, require('./routes/invoices'));
 app.use('/api/expenses', checkMongoConnection, require('./routes/expenses'));
 app.use('/api/income', checkMongoConnection, require('./routes/income'));
 app.use('/api/ledger', checkMongoConnection, require('./routes/ledger'));
+app.use('/api/search', checkMongoConnection, require('./routes/search'));
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -374,6 +375,15 @@ io.on('connection', (socket) => {
     activeConnections.delete(socket.id);
   });
 });
+
+// Initialize scheduled jobs for email reminders
+try {
+  const { initializeScheduledJobs } = require('./jobs/emailReminders');
+  initializeScheduledJobs();
+} catch (error) {
+  console.error('⚠️  Failed to initialize scheduled jobs:', error.message);
+  console.log('   Scheduled jobs will not run. Make sure node-cron is installed.');
+}
 
 // Start server
 server.listen(PORT, () => {
