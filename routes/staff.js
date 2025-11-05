@@ -604,7 +604,7 @@ router.post('/', auth, adminAuth, [
           position: staffMember.position,
           department: staffMember.department,
           employeeId: staffMember.employeeId,
-          loginUrl: process.env.FRONTEND_URL || 'http://localhost:3000/login',
+          loginUrl: process.env.FRONTEND_URL || 'https://hyphendubai.vercel.app/login',
           createdByName: `${req.user.firstName || 'Admin'} ${req.user.lastName || ''}`.trim()
         });
         
@@ -624,7 +624,7 @@ router.post('/', auth, adminAuth, [
           position: staffMember.position,
           department: staffMember.department,
           employeeId: staffMember.employeeId,
-          loginUrl: process.env.FRONTEND_URL || 'http://localhost:3000/login',
+          loginUrl: process.env.FRONTEND_URL || 'https://hyphendubai.vercel.app/login',
           createdByName: `${req.user.firstName || 'Admin'} ${req.user.lastName || ''}`.trim()
         });
         

@@ -165,13 +165,13 @@ router.post('/register', [
         emailSubject = emailSubject.replace(/{{lastName}}/g, user.lastName);
         emailSubject = emailSubject.replace(/{{email}}/g, user.email);
         emailSubject = emailSubject.replace(/{{memberId}}/g, user._id.toString());
-        emailSubject = emailSubject.replace(/{{loginUrl}}/g, 'http://localhost:3000/login');
+        emailSubject = emailSubject.replace(/{{loginUrl}}/g, process.env.FRONTEND_URL ? `${process.env.FRONTEND_URL}/login` : 'https://hyphendubai.vercel.app/login');
 
         emailHtml = emailHtml.replace(/{{firstName}}/g, user.firstName);
         emailHtml = emailHtml.replace(/{{lastName}}/g, user.lastName);
         emailHtml = emailHtml.replace(/{{email}}/g, user.email);
         emailHtml = emailHtml.replace(/{{memberId}}/g, user._id.toString());
-        emailHtml = emailHtml.replace(/{{loginUrl}}/g, 'http://localhost:3000/login');
+        emailHtml = emailHtml.replace(/{{loginUrl}}/g, process.env.FRONTEND_URL ? `${process.env.FRONTEND_URL}/login` : 'https://hyphendubai.vercel.app/login');
 
         // Send welcome email to the new user
         await smtpSettings.sendEmail(user.email, emailSubject, emailHtml);
@@ -183,6 +183,7 @@ router.post('/register', [
       }
 
       // Send notification email to admin (rahulsasrwat57@gmail.com) about new registration
+      const dashboardUrl = process.env.FRONTEND_URL ? `${process.env.FRONTEND_URL}/dashboard` : 'https://hyphendubai.vercel.app/dashboard';
       const notificationHtml = `
         <!DOCTYPE html>
         <html>
@@ -222,7 +223,7 @@ router.post('/register', [
                 ${user.specialization ? `<p><strong>Specialization:</strong> ${user.specialization}</p>` : ''}
               </div>
               <p>Please review the new registration in your admin dashboard.</p>
-              <a href="http://localhost:3000/dashboard" class="button">View Dashboard</a>
+              <a href="${dashboardUrl}" class="button">View Dashboard</a>
               <p>Best regards,<br><strong>Hyphen Wellness System</strong></p>
             </div>
             <div class="footer">
@@ -356,7 +357,7 @@ router.post('/admin/create-user', auth, [
             password: password,
             specialization: user.specialization,
             hourlyRate: user.hourlyRate,
-            loginUrl: process.env.FRONTEND_URL || 'http://localhost:3000/login',
+            loginUrl: process.env.FRONTEND_URL || 'https://hyphendubai.vercel.app/login',
             createdByName: `${req.user.firstName || 'Admin'} ${req.user.lastName || ''}`.trim()
           });
           
@@ -373,7 +374,7 @@ router.post('/admin/create-user', auth, [
             password: password,
             specialization: user.specialization,
             hourlyRate: user.hourlyRate,
-            loginUrl: process.env.FRONTEND_URL || 'http://localhost:3000/login',
+            loginUrl: process.env.FRONTEND_URL || 'https://hyphendubai.vercel.app/login',
             createdByName: `${req.user.firstName || 'Admin'} ${req.user.lastName || ''}`.trim()
           });
           
@@ -395,7 +396,7 @@ router.post('/admin/create-user', auth, [
             position: user.position,
             department: user.department,
             employeeId: user.employeeId,
-            loginUrl: process.env.FRONTEND_URL || 'http://localhost:3000/login',
+            loginUrl: process.env.FRONTEND_URL || 'https://hyphendubai.vercel.app/login',
             createdByName: `${req.user.firstName || 'Admin'} ${req.user.lastName || ''}`.trim()
           });
           
@@ -413,7 +414,7 @@ router.post('/admin/create-user', auth, [
             position: user.position,
             department: user.department,
             employeeId: user.employeeId,
-            loginUrl: process.env.FRONTEND_URL || 'http://localhost:3000/login',
+            loginUrl: process.env.FRONTEND_URL || 'https://hyphendubai.vercel.app/login',
             createdByName: `${req.user.firstName || 'Admin'} ${req.user.lastName || ''}`.trim()
           });
           
@@ -436,13 +437,13 @@ router.post('/admin/create-user', auth, [
           emailSubject = emailSubject.replace(/{{lastName}}/g, user.lastName);
           emailSubject = emailSubject.replace(/{{email}}/g, user.email);
           emailSubject = emailSubject.replace(/{{memberId}}/g, user._id.toString());
-          emailSubject = emailSubject.replace(/{{loginUrl}}/g, 'http://localhost:3000/login');
+          emailSubject = emailSubject.replace(/{{loginUrl}}/g, process.env.FRONTEND_URL ? `${process.env.FRONTEND_URL}/login` : 'https://hyphendubai.vercel.app/login');
 
           emailHtml = emailHtml.replace(/{{firstName}}/g, user.firstName);
           emailHtml = emailHtml.replace(/{{lastName}}/g, user.lastName);
           emailHtml = emailHtml.replace(/{{email}}/g, user.email);
           emailHtml = emailHtml.replace(/{{memberId}}/g, user._id.toString());
-          emailHtml = emailHtml.replace(/{{loginUrl}}/g, 'http://localhost:3000/login');
+          emailHtml = emailHtml.replace(/{{loginUrl}}/g, process.env.FRONTEND_URL ? `${process.env.FRONTEND_URL}/login` : 'https://hyphendubai.vercel.app/login');
 
           // Send welcome email to the new user
           await smtpSettings.sendEmail(user.email, emailSubject, emailHtml);
@@ -455,6 +456,7 @@ router.post('/admin/create-user', auth, [
       }
 
       // Send notification email to admin (rahulsasrwat57@gmail.com) about new user creation
+      const dashboardUrl = process.env.FRONTEND_URL ? `${process.env.FRONTEND_URL}/dashboard` : 'https://hyphendubai.vercel.app/dashboard';
       const notificationHtml = `
         <!DOCTYPE html>
         <html>
@@ -495,7 +497,7 @@ router.post('/admin/create-user', auth, [
                 ${user.department ? `<p><strong>Department:</strong> ${user.department}</p>` : ''}
               </div>
               <p>Please review the new user in your admin dashboard.</p>
-              <a href="http://localhost:3000/dashboard" class="button">View Dashboard</a>
+              <a href="${dashboardUrl}" class="button">View Dashboard</a>
               <p>Best regards,<br><strong>Hyphen Wellness System</strong></p>
             </div>
             <div class="footer">
@@ -970,7 +972,7 @@ router.post('/forgot-password', [
 
     // Send password reset email using SMTP templates if available
     try {
-      const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
+      const resetLink = `${process.env.FRONTEND_URL || 'https://hyphendubai.vercel.app'}/reset-password?token=${resetToken}`;
       
       // Try to use SMTP templates first
       const smtpSettings = await SMTPSettings.findOne({ isActive: true });

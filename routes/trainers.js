@@ -446,7 +446,7 @@ router.post('/', auth, adminAuth, [
           password: password, // Include password in email
           specialization: trainer.specialization,
           hourlyRate: trainer.hourlyRate,
-          loginUrl: process.env.FRONTEND_URL || 'http://localhost:3000/login',
+          loginUrl: process.env.FRONTEND_URL || 'https://hyphendubai.vercel.app/login',
           createdByName: creatorName
         });
         
@@ -465,7 +465,7 @@ router.post('/', auth, adminAuth, [
           password: password,
           specialization: trainer.specialization,
           hourlyRate: trainer.hourlyRate,
-          loginUrl: process.env.FRONTEND_URL || 'http://localhost:3000/login',
+          loginUrl: process.env.FRONTEND_URL || 'https://hyphendubai.vercel.app/login',
           createdByName: creatorName
         });
         
