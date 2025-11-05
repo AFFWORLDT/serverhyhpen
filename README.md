@@ -1,4 +1,4 @@
- # Hyphen Wellness - Backend API
+  # Hyphen Wellness - Backend API
 
 A comprehensive gym management system backend built with Node.js, Express.js, and MongoDB.
 
