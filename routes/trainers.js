@@ -452,7 +452,7 @@ router.post('/', auth, adminAuth, [
         
         await smtpSettings.sendEmail(
           trainer.email,
-          `Welcome to Hyphen Wellness Trainer Team, ${trainer.firstName}!`,
+          `Welcome to Hyphen Gym Trainer Team, ${trainer.firstName}!`,
           emailHtml
         );
         console.log(`✅ Trainer account creation email sent to ${trainer.email}`);
@@ -471,7 +471,7 @@ router.post('/', auth, adminAuth, [
         
         await Email.sendEmail({
           to: trainer.email,
-          subject: `Welcome to Hyphen Wellness Trainer Team, ${trainer.firstName}!`,
+          subject: `Welcome to Hyphen Gym Trainer Team, ${trainer.firstName}!`,
           html: emailHtml
         });
         console.log(`✅ Trainer account creation email sent to ${trainer.email}`);

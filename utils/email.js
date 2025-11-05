@@ -132,14 +132,14 @@ function buildBaseTemplate({ title, bodyHtml, headerColor = 'linear-gradient(135
       <div class="container">
         <div class="card">
           <div class="header">
-            <h2 style="margin:0;">Hyphen Wellness</h2>
+            <h2 style="margin:0;">Hyphen Gym</h2>
             <p style="margin:6px 0 0; opacity:.9;">Dubai's Smart Gym Management</p>
           </div>
           <div class="content">
             ${bodyHtml}
           </div>
           <div class="footer">
-            <p style="margin: 0 0 8px;">© ${new Date().getFullYear()} Hyphen Wellness. All rights reserved.</p>
+            <p style="margin: 0 0 8px;">© ${new Date().getFullYear()} Hyphen Gym. All rights reserved.</p>
             <p style="margin: 0; font-size: 11px; opacity: 0.8;">This is an automated email. Please do not reply.</p>
           </div>
         </div>
@@ -155,7 +155,7 @@ function buildBaseTemplate({ title, bodyHtml, headerColor = 'linear-gradient(135
 function welcomeMemberTemplate({ firstName, lastName, email, loginUrl = 'http://localhost:3000/login' }) {
   const body = `
     <div class="icon">🎉</div>
-    <h1>Welcome to Hyphen Wellness, ${firstName}!</h1>
+    <h1>Welcome to Hyphen Gym, ${firstName}!</h1>
     <p>Hi ${firstName}${lastName ? ' ' + lastName : ''},</p>
     <p>Your account has been created successfully. We're excited to be part of your fitness journey!</p>
     <div class="success-box">
@@ -168,7 +168,7 @@ function welcomeMemberTemplate({ firstName, lastName, email, loginUrl = 'http://
         <span class="detail-value">${email}</span>
       </div>
     </div>
-    <p>Use the Hyphen Wellness platform to:</p>
+    <p>Use the Hyphen Gym platform to:</p>
     <ul>
       <li>Check in to the gym</li>
       <li>Manage your membership</li>
@@ -181,13 +181,13 @@ function welcomeMemberTemplate({ firstName, lastName, email, loginUrl = 'http://
     </div>
     <p class="muted text-center">If you have any questions, feel free to contact our support team.</p>
   `;
-  return buildBaseTemplate({ title: 'Welcome to Hyphen Wellness', bodyHtml: body });
+  return buildBaseTemplate({ title: 'Welcome to Hyphen Gym', bodyHtml: body });
 }
 
 function registrationNotificationTemplate({ firstName, lastName, email, phone, role, memberId, specialization }) {
   const body = `
     <h2>New User Registration</h2>
-    <p>A new user has successfully registered on Hyphen Wellness.</p>
+    <p>A new user has successfully registered on Hyphen Gym.</p>
     <div class="info-box">
       <p style="margin: 0 0 16px; font-weight: 600; color: #1f2937;">Registration Details:</p>
       <div class="detail-row">
@@ -227,7 +227,7 @@ function registrationNotificationTemplate({ firstName, lastName, email, phone, r
     </div>
     <p class="muted">Please review this new registration in your admin dashboard.</p>
   `;
-  return buildBaseTemplate({ title: 'New Registration - Hyphen Wellness', bodyHtml: body });
+  return buildBaseTemplate({ title: 'New Registration - Hyphen Gym', bodyHtml: body });
 }
 
 function passwordResetTemplate({ firstName, resetLink, expiresIn = '24 hours' }) {
@@ -235,7 +235,7 @@ function passwordResetTemplate({ firstName, resetLink, expiresIn = '24 hours' })
     <div class="icon">🔐</div>
     <h1>Password Reset Request</h1>
     <p>Hi ${firstName},</p>
-    <p>We received a request to reset your password for your Hyphen Wellness account.</p>
+    <p>We received a request to reset your password for your Hyphen Gym account.</p>
     <div class="warning-box">
       <p style="margin: 0 0 8px; color: #92400e; font-weight: 600;">⚠️ Important</p>
       <p style="margin: 0; color: #92400e; font-size: 14px;">This link will expire in ${expiresIn}. If you didn't request this, please ignore this email.</p>
@@ -247,7 +247,7 @@ function passwordResetTemplate({ firstName, resetLink, expiresIn = '24 hours' })
     <p style="word-break: break-all; font-size: 12px; color: #6b7280; text-align: center; background: #f9fafb; padding: 12px; border-radius: 6px;">${resetLink}</p>
     <p class="muted">If you didn't request a password reset, you can safely ignore this email.</p>
   `;
-  return buildBaseTemplate({ title: 'Password Reset - Hyphen Wellness', bodyHtml: body });
+  return buildBaseTemplate({ title: 'Password Reset - Hyphen Gym', bodyHtml: body });
 }
 
 function passwordChangedTemplate({ firstName, changedAt, ipAddress }) {
@@ -275,7 +275,7 @@ function passwordChangedTemplate({ firstName, changedAt, ipAddress }) {
       <strong style="color: #92400e;">Security Notice:</strong> If you didn't make this change, please contact support immediately.
     </p>
   `;
-  return buildBaseTemplate({ title: 'Password Changed - Hyphen Wellness', bodyHtml: body });
+  return buildBaseTemplate({ title: 'Password Changed - Hyphen Gym', bodyHtml: body });
 }
 
 function accountActivatedTemplate({ firstName }) {
@@ -283,7 +283,7 @@ function accountActivatedTemplate({ firstName }) {
     <div class="icon">✨</div>
     <h1>Account Activated</h1>
     <p>Hi ${firstName},</p>
-    <p>Great news! Your Hyphen Wellness account has been activated.</p>
+    <p>Great news! Your Hyphen Gym account has been activated.</p>
     <div class="success-box">
       <p style="margin: 0; color: #166534; font-weight: 600;">You can now access all features of your account.</p>
     </div>
@@ -292,7 +292,7 @@ function accountActivatedTemplate({ firstName }) {
       <a href="http://localhost:3000/login" class="btn">Log in to Your Account</a>
     </div>
   `;
-  return buildBaseTemplate({ title: 'Account Activated - Hyphen Wellness', bodyHtml: body });
+  return buildBaseTemplate({ title: 'Account Activated - Hyphen Gym', bodyHtml: body });
 }
 
 function accountDeactivatedTemplate({ firstName, reason }) {
@@ -300,7 +300,7 @@ function accountDeactivatedTemplate({ firstName, reason }) {
     <div class="icon">⚠️</div>
     <h1>Account Deactivated</h1>
     <p>Hi ${firstName},</p>
-    <p>Your Hyphen Wellness account has been deactivated.</p>
+    <p>Your Hyphen Gym account has been deactivated.</p>
     ${reason ? `
     <div class="info-box">
       <p style="margin: 0 0 8px; font-weight: 600;">Reason:</p>
@@ -309,7 +309,7 @@ function accountDeactivatedTemplate({ firstName, reason }) {
     ` : ''}
     <p>If you believe this is an error or have questions, please contact our support team.</p>
   `;
-  return buildBaseTemplate({ title: 'Account Deactivated - Hyphen Wellness', bodyHtml: body, headerColor: 'linear-gradient(135deg,#f59e0b,#ef4444)' });
+  return buildBaseTemplate({ title: 'Account Deactivated - Hyphen Gym', bodyHtml: body, headerColor: 'linear-gradient(135deg,#f59e0b,#ef4444)' });
 }
 
 function profileUpdatedTemplate({ firstName, changes }) {
@@ -328,13 +328,13 @@ function profileUpdatedTemplate({ firstName, changes }) {
     ` : ''}
     <p class="muted">If you didn't make these changes, please contact support immediately.</p>
   `;
-  return buildBaseTemplate({ title: 'Profile Updated - Hyphen Wellness', bodyHtml: body });
+  return buildBaseTemplate({ title: 'Profile Updated - Hyphen Gym', bodyHtml: body });
 }
 
 function trainerAccountCreatedTemplate({ firstName, lastName, email, password, specialization, hourlyRate, loginUrl = 'http://localhost:3000/login', createdByName }) {
   const body = `
     <div class="icon">💪</div>
-    <h1>Welcome to Hyphen Wellness Trainer Team, ${firstName}!</h1>
+    <h1>Welcome to Hyphen Gym Trainer Team, ${firstName}!</h1>
     <p>Hi ${firstName}${lastName ? ' ' + lastName : ''},</p>
     <p>Your trainer account has been created successfully by ${createdByName || 'the management team'}. We're excited to have you on board!</p>
     <div class="success-box">
@@ -381,13 +381,13 @@ function trainerAccountCreatedTemplate({ firstName, lastName, email, password, s
     </div>
     <p class="muted text-center">If you have any questions or need assistance, feel free to contact our support team.</p>
   `;
-  return buildBaseTemplate({ title: 'Trainer Account Created - Hyphen Wellness', bodyHtml: body, headerColor: 'linear-gradient(135deg,#10b981,#059669)' });
+  return buildBaseTemplate({ title: 'Trainer Account Created - Hyphen Gym', bodyHtml: body, headerColor: 'linear-gradient(135deg,#10b981,#059669)' });
 }
 
 function staffAccountCreatedTemplate({ firstName, lastName, email, password, position, department, employeeId, loginUrl = 'http://localhost:3000/login', createdByName }) {
   const body = `
     <div class="icon">👔</div>
-    <h1>Welcome to Hyphen Wellness Staff Team, ${firstName}!</h1>
+    <h1>Welcome to Hyphen Gym Staff Team, ${firstName}!</h1>
     <p>Hi ${firstName}${lastName ? ' ' + lastName : ''},</p>
     <p>Your staff account has been created successfully by ${createdByName || 'the management team'}. We're thrilled to have you join our team!</p>
     <div class="success-box">
@@ -440,7 +440,7 @@ function staffAccountCreatedTemplate({ firstName, lastName, email, password, pos
     </div>
     <p class="muted text-center">If you have any questions or need assistance, feel free to contact our support team.</p>
   `;
-  return buildBaseTemplate({ title: 'Staff Account Created - Hyphen Wellness', bodyHtml: body, headerColor: 'linear-gradient(135deg,#2563eb,#1d4ed8)' });
+  return buildBaseTemplate({ title: 'Staff Account Created - Hyphen Gym', bodyHtml: body, headerColor: 'linear-gradient(135deg,#2563eb,#1d4ed8)' });
 }
 
 // ============================================
@@ -482,7 +482,7 @@ function membershipAssignedTemplate({ firstName, membershipName, startDate, endD
     ` : ''}
     <p>You can now enjoy all the benefits of your membership!</p>
   `;
-  return buildBaseTemplate({ title: 'Membership Assigned - Hyphen Wellness', bodyHtml: body });
+  return buildBaseTemplate({ title: 'Membership Assigned - Hyphen Gym', bodyHtml: body });
 }
 
 function membershipRenewedTemplate({ firstName, membershipName, newEndDate, price }) {
@@ -508,7 +508,7 @@ function membershipRenewedTemplate({ firstName, membershipName, newEndDate, pric
     </div>
     <p>Thank you for continuing your fitness journey with us!</p>
   `;
-  return buildBaseTemplate({ title: 'Membership Renewed - Hyphen Wellness', bodyHtml: body });
+  return buildBaseTemplate({ title: 'Membership Renewed - Hyphen Gym', bodyHtml: body });
 }
 
 function membershipExpiringSoonTemplate({ firstName, membershipName, daysRemaining, expiryDate, renewUrl }) {
@@ -539,7 +539,7 @@ function membershipExpiringSoonTemplate({ firstName, membershipName, daysRemaini
     </div>
     ` : ''}
   `;
-  return buildBaseTemplate({ title: 'Membership Expiring Soon - Hyphen Wellness', bodyHtml: body, headerColor: 'linear-gradient(135deg,#f59e0b,#f97316)' });
+  return buildBaseTemplate({ title: 'Membership Expiring Soon - Hyphen Gym', bodyHtml: body, headerColor: 'linear-gradient(135deg,#f59e0b,#f97316)' });
 }
 
 function membershipExpiredTemplate({ firstName, membershipName, expiredDate, renewUrl }) {
@@ -566,7 +566,7 @@ function membershipExpiredTemplate({ firstName, membershipName, expiredDate, ren
     </div>
     ` : ''}
   `;
-  return buildBaseTemplate({ title: 'Membership Expired - Hyphen Wellness', bodyHtml: body, headerColor: 'linear-gradient(135deg,#ef4444,#dc2626)' });
+  return buildBaseTemplate({ title: 'Membership Expired - Hyphen Gym', bodyHtml: body, headerColor: 'linear-gradient(135deg,#ef4444,#dc2626)' });
 }
 
 function membershipUpgradedTemplate({ firstName, oldPlan, newPlan, upgradeDate, priceDifference }) {
@@ -598,7 +598,7 @@ function membershipUpgradedTemplate({ firstName, oldPlan, newPlan, upgradeDate, 
     </div>
     <p>You now have access to additional features and benefits. Enjoy your upgraded membership!</p>
   `;
-  return buildBaseTemplate({ title: 'Membership Upgraded - Hyphen Wellness', bodyHtml: body });
+  return buildBaseTemplate({ title: 'Membership Upgraded - Hyphen Gym', bodyHtml: body });
 }
 
 function membershipCancelledTemplate({ firstName, membershipName, cancellationDate, reason }) {
@@ -626,7 +626,7 @@ function membershipCancelledTemplate({ firstName, membershipName, cancellationDa
     </div>
     <p>We're sorry to see you go. If you'd like to reactivate your membership in the future, we'd be happy to welcome you back!</p>
   `;
-  return buildBaseTemplate({ title: 'Membership Cancelled - Hyphen Wellness', bodyHtml: body });
+  return buildBaseTemplate({ title: 'Membership Cancelled - Hyphen Gym', bodyHtml: body });
 }
 
 // ============================================
@@ -671,7 +671,7 @@ function paymentReceiptTemplate({ firstName, receiptNumber, amount, paymentMetho
     ` : ''}
     <p class="muted text-center">Please keep this receipt for your records.</p>
   `;
-  return buildBaseTemplate({ title: 'Payment Receipt - Hyphen Wellness', bodyHtml: body });
+  return buildBaseTemplate({ title: 'Payment Receipt - Hyphen Gym', bodyHtml: body });
 }
 
 function paymentReminderTemplate({ firstName, amount, dueDate, daysOverdue, invoiceNumber, paymentUrl }) {
@@ -710,7 +710,7 @@ function paymentReminderTemplate({ firstName, amount, dueDate, daysOverdue, invo
     </div>
     ` : ''}
   `;
-  return buildBaseTemplate({ title: 'Payment Reminder - Hyphen Wellness', bodyHtml: body, headerColor: 'linear-gradient(135deg,#f59e0b,#f97316)' });
+  return buildBaseTemplate({ title: 'Payment Reminder - Hyphen Gym', bodyHtml: body, headerColor: 'linear-gradient(135deg,#f59e0b,#f97316)' });
 }
 
 function paymentOverdueTemplate({ firstName, amount, dueDate, daysOverdue, invoiceNumber, paymentUrl }) {
@@ -747,7 +747,7 @@ function paymentOverdueTemplate({ firstName, amount, dueDate, daysOverdue, invoi
     </div>
     ` : ''}
   `;
-  return buildBaseTemplate({ title: 'Payment Overdue - Hyphen Wellness', bodyHtml: body, headerColor: 'linear-gradient(135deg,#ef4444,#dc2626)' });
+  return buildBaseTemplate({ title: 'Payment Overdue - Hyphen Gym', bodyHtml: body, headerColor: 'linear-gradient(135deg,#ef4444,#dc2626)' });
 }
 
 function invoiceGeneratedTemplate({ firstName, invoiceNumber, amount, dueDate, items, invoiceUrl }) {
@@ -789,7 +789,7 @@ function invoiceGeneratedTemplate({ firstName, invoiceNumber, amount, dueDate, i
     ` : ''}
     <p class="muted text-center">Please make payment before the due date.</p>
   `;
-  return buildBaseTemplate({ title: 'Invoice Generated - Hyphen Wellness', bodyHtml: body });
+  return buildBaseTemplate({ title: 'Invoice Generated - Hyphen Gym', bodyHtml: body });
 }
 
 function refundProcessedTemplate({ firstName, refundNumber, amount, originalPayment, reason, refundMethod }) {
@@ -825,7 +825,7 @@ function refundProcessedTemplate({ firstName, refundNumber, amount, originalPaym
     </div>
     <p>The refund will be processed to your original payment method within 5-7 business days.</p>
   `;
-  return buildBaseTemplate({ title: 'Refund Processed - Hyphen Wellness', bodyHtml: body });
+  return buildBaseTemplate({ title: 'Refund Processed - Hyphen Gym', bodyHtml: body });
 }
 
 // ============================================
@@ -858,7 +858,7 @@ function appointmentBookedTemplate({ firstName, trainerName, appointmentDate, ap
       </div>
       <div class="detail-row">
         <span class="detail-label">Location:</span>
-        <span class="detail-value">${location || 'Hyphen Wellness'}</span>
+        <span class="detail-value">${location || 'Hyphen Gym'}</span>
       </div>
     </div>
     ${notes ? `
@@ -869,7 +869,7 @@ function appointmentBookedTemplate({ firstName, trainerName, appointmentDate, ap
     ` : ''}
     <p>We look forward to seeing you! Please arrive on time for your appointment.</p>
   `;
-  return buildBaseTemplate({ title: 'Appointment Booked - Hyphen Wellness', bodyHtml: body });
+  return buildBaseTemplate({ title: 'Appointment Booked - Hyphen Gym', bodyHtml: body });
 }
 
 function appointmentConfirmedTemplate({ firstName, trainerName, appointmentDate, appointmentTime, location }) {
@@ -894,12 +894,12 @@ function appointmentConfirmedTemplate({ firstName, trainerName, appointmentDate,
       </div>
       <div class="detail-row">
         <span class="detail-label">Location:</span>
-        <span class="detail-value">${location || 'Hyphen Wellness'}</span>
+        <span class="detail-value">${location || 'Hyphen Gym'}</span>
       </div>
     </div>
     <p>See you soon!</p>
   `;
-  return buildBaseTemplate({ title: 'Appointment Confirmed - Hyphen Wellness', bodyHtml: body });
+  return buildBaseTemplate({ title: 'Appointment Confirmed - Hyphen Gym', bodyHtml: body });
 }
 
 function appointmentReminderTemplate({ firstName, trainerName, appointmentDate, appointmentTime, location, hours }) {
@@ -924,12 +924,12 @@ function appointmentReminderTemplate({ firstName, trainerName, appointmentDate, 
       </div>
       <div class="detail-row">
         <span class="detail-label">Location:</span>
-        <span class="detail-value">${location || 'Hyphen Wellness'}</span>
+        <span class="detail-value">${location || 'Hyphen Gym'}</span>
       </div>
     </div>
     <p>Please make sure to arrive on time for your appointment.</p>
   `;
-  return buildBaseTemplate({ title: 'Appointment Reminder - Hyphen Wellness', bodyHtml: body, headerColor: 'linear-gradient(135deg,#f59e0b,#f97316)' });
+  return buildBaseTemplate({ title: 'Appointment Reminder - Hyphen Gym', bodyHtml: body, headerColor: 'linear-gradient(135deg,#f59e0b,#f97316)' });
 }
 
 function appointmentRescheduledTemplate({ firstName, trainerName, oldDate, oldTime, newDate, newTime, location, reason }) {
@@ -965,7 +965,7 @@ function appointmentRescheduledTemplate({ firstName, trainerName, oldDate, oldTi
       </div>
       <div class="detail-row">
         <span class="detail-label">Location:</span>
-        <span class="detail-value">${location || 'Hyphen Wellness'}</span>
+        <span class="detail-value">${location || 'Hyphen Gym'}</span>
       </div>
     </div>
     ${reason ? `
@@ -975,7 +975,7 @@ function appointmentRescheduledTemplate({ firstName, trainerName, oldDate, oldTi
     </div>
     ` : ''}
   `;
-  return buildBaseTemplate({ title: 'Appointment Rescheduled - Hyphen Wellness', bodyHtml: body });
+  return buildBaseTemplate({ title: 'Appointment Rescheduled - Hyphen Gym', bodyHtml: body });
 }
 
 function appointmentCancelledTemplate({ firstName, trainerName, appointmentDate, appointmentTime, reason, rescheduleUrl }) {
@@ -1012,7 +1012,7 @@ function appointmentCancelledTemplate({ firstName, trainerName, appointmentDate,
     </div>
     ` : ''}
   `;
-  return buildBaseTemplate({ title: 'Appointment Cancelled - Hyphen Wellness', bodyHtml: body });
+  return buildBaseTemplate({ title: 'Appointment Cancelled - Hyphen Gym', bodyHtml: body });
 }
 
 function sessionScheduledTemplate({ firstName, trainerName, sessionDate, sessionTime, duration, location, programmeName }) {
@@ -1047,12 +1047,12 @@ function sessionScheduledTemplate({ firstName, trainerName, sessionDate, session
       </div>
       <div class="detail-row">
         <span class="detail-label">Location:</span>
-        <span class="detail-value">${location || 'Hyphen Wellness'}</span>
+        <span class="detail-value">${location || 'Hyphen Gym'}</span>
       </div>
     </div>
     <p>Get ready for an amazing workout session!</p>
   `;
-  return buildBaseTemplate({ title: 'Training Session Scheduled - Hyphen Wellness', bodyHtml: body });
+  return buildBaseTemplate({ title: 'Training Session Scheduled - Hyphen Gym', bodyHtml: body });
 }
 
 function sessionRescheduledTemplate({ firstName, trainerName, oldDate, oldTime, newDate, newTime, location }) {
@@ -1088,11 +1088,11 @@ function sessionRescheduledTemplate({ firstName, trainerName, oldDate, oldTime, 
       </div>
       <div class="detail-row">
         <span class="detail-label">Location:</span>
-        <span class="detail-value">${location || 'Hyphen Wellness'}</span>
+        <span class="detail-value">${location || 'Hyphen Gym'}</span>
       </div>
     </div>
   `;
-  return buildBaseTemplate({ title: 'Training Session Rescheduled - Hyphen Wellness', bodyHtml: body });
+  return buildBaseTemplate({ title: 'Training Session Rescheduled - Hyphen Gym', bodyHtml: body });
 }
 
 function sessionCancelledTemplate({ firstName, trainerName, sessionDate, sessionTime, reason }) {
@@ -1115,7 +1115,7 @@ function sessionCancelledTemplate({ firstName, trainerName, sessionDate, session
     </div>
     <p>If you have any questions or would like to reschedule, please contact us.</p>
   `;
-  return buildBaseTemplate({ title: 'Training Session Cancelled - Hyphen Wellness', bodyHtml: body });
+  return buildBaseTemplate({ title: 'Training Session Cancelled - Hyphen Gym', bodyHtml: body });
 }
 
 function sessionCompletedTemplate({ firstName, trainerName, sessionDate, sessionTime, rating, notes }) {
@@ -1149,7 +1149,7 @@ function sessionCompletedTemplate({ firstName, trainerName, sessionDate, session
     ` : ''}
     <p>Great job on completing your session! Keep up the excellent work.</p>
   `;
-  return buildBaseTemplate({ title: 'Training Session Completed - Hyphen Wellness', bodyHtml: body });
+  return buildBaseTemplate({ title: 'Training Session Completed - Hyphen Gym', bodyHtml: body });
 }
 
 // ============================================
@@ -1177,7 +1177,7 @@ function checkinConfirmationTemplate({ firstName, checkInTime, location }) {
     </div>
     <p>Enjoy your workout session!</p>
   `;
-  return buildBaseTemplate({ title: 'Check-in Confirmation - Hyphen Wellness', bodyHtml: body });
+  return buildBaseTemplate({ title: 'Check-in Confirmation - Hyphen Gym', bodyHtml: body });
 }
 
 function checkoutSummaryTemplate({ firstName, checkOutTime, checkInTime, duration, location }) {
@@ -1209,7 +1209,7 @@ function checkoutSummaryTemplate({ firstName, checkOutTime, checkInTime, duratio
     </div>
     <p>Thank you for your visit! See you next time.</p>
   `;
-  return buildBaseTemplate({ title: 'Check-out Summary - Hyphen Wellness', bodyHtml: body });
+  return buildBaseTemplate({ title: 'Check-out Summary - Hyphen Gym', bodyHtml: body });
 }
 
 // ============================================
@@ -1244,12 +1244,12 @@ function classEnrolledTemplate({ firstName, className, classDate, classTime, ins
       ` : ''}
       <div class="detail-row">
         <span class="detail-label">Location:</span>
-        <span class="detail-value">${location || 'Hyphen Wellness'}</span>
+        <span class="detail-value">${location || 'Hyphen Gym'}</span>
       </div>
     </div>
     <p>We look forward to seeing you in class!</p>
   `;
-  return buildBaseTemplate({ title: 'Class Enrollment Confirmed - Hyphen Wellness', bodyHtml: body });
+  return buildBaseTemplate({ title: 'Class Enrollment Confirmed - Hyphen Gym', bodyHtml: body });
 }
 
 function classReminderTemplate({ firstName, className, classDate, classTime, instructor, location, hours }) {
@@ -1280,12 +1280,12 @@ function classReminderTemplate({ firstName, className, classDate, classTime, ins
       ` : ''}
       <div class="detail-row">
         <span class="detail-label">Location:</span>
-        <span class="detail-value">${location || 'Hyphen Wellness'}</span>
+        <span class="detail-value">${location || 'Hyphen Gym'}</span>
       </div>
     </div>
     <p>See you in class!</p>
   `;
-  return buildBaseTemplate({ title: 'Class Reminder - Hyphen Wellness', bodyHtml: body, headerColor: 'linear-gradient(135deg,#f59e0b,#f97316)' });
+  return buildBaseTemplate({ title: 'Class Reminder - Hyphen Gym', bodyHtml: body, headerColor: 'linear-gradient(135deg,#f59e0b,#f97316)' });
 }
 
 function classCancelledTemplate({ firstName, className, classDate, classTime, reason }) {
@@ -1317,7 +1317,7 @@ function classCancelledTemplate({ firstName, className, classDate, classTime, re
     </div>
     <p>We apologize for any inconvenience. You can enroll in other available classes.</p>
   `;
-  return buildBaseTemplate({ title: 'Class Cancelled - Hyphen Wellness', bodyHtml: body });
+  return buildBaseTemplate({ title: 'Class Cancelled - Hyphen Gym', bodyHtml: body });
 }
 
 // ============================================
@@ -1357,7 +1357,7 @@ function trainerAssignedTemplate({ firstName, trainerName, trainerEmail, trainer
     </div>
     <p>You can now schedule training sessions with your assigned trainer.</p>
   `;
-  return buildBaseTemplate({ title: 'Trainer Assigned - Hyphen Wellness', bodyHtml: body });
+  return buildBaseTemplate({ title: 'Trainer Assigned - Hyphen Gym', bodyHtml: body });
 }
 
 function programmeAssignedTemplate({ firstName, programmeName, trainerName, duration, sessions, description }) {
@@ -1399,7 +1399,7 @@ function programmeAssignedTemplate({ firstName, programmeName, trainerName, dura
     ` : ''}
     <p>Start your training programme and achieve your fitness goals!</p>
   `;
-  return buildBaseTemplate({ title: 'Training Programme Assigned - Hyphen Wellness', bodyHtml: body });
+  return buildBaseTemplate({ title: 'Training Programme Assigned - Hyphen Gym', bodyHtml: body });
 }
 
 // ============================================
@@ -1435,7 +1435,7 @@ function systemMaintenanceTemplate({ firstName, maintenanceDate, maintenanceTime
     </div>
     <p>During this time, some services may be temporarily unavailable. We apologize for any inconvenience.</p>
   `;
-  return buildBaseTemplate({ title: 'System Maintenance - Hyphen Wellness', bodyHtml: body, headerColor: 'linear-gradient(135deg,#f59e0b,#f97316)' });
+  return buildBaseTemplate({ title: 'System Maintenance - Hyphen Gym', bodyHtml: body, headerColor: 'linear-gradient(135deg,#f59e0b,#f97316)' });
 }
 
 // ============================================

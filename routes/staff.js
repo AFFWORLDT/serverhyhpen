@@ -610,7 +610,7 @@ router.post('/', auth, adminAuth, [
         
         await smtpSettings.sendEmail(
           staffMember.email,
-          `Welcome to Hyphen Wellness Staff Team, ${staffMember.firstName}!`,
+          `Welcome to Hyphen Gym Staff Team, ${staffMember.firstName}!`,
           emailHtml
         );
         console.log(`✅ Staff account creation email sent to ${staffMember.email}`);
@@ -630,7 +630,7 @@ router.post('/', auth, adminAuth, [
         
         await Email.sendEmail({
           to: staffMember.email,
-          subject: `Welcome to Hyphen Wellness Staff Team, ${staffMember.firstName}!`,
+          subject: `Welcome to Hyphen Gym Staff Team, ${staffMember.firstName}!`,
           html: emailHtml
         });
         console.log(`✅ Staff account creation email sent to ${staffMember.email}`);

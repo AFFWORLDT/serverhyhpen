@@ -295,7 +295,7 @@ app.get('/api/health', (req, res) => {
   
   res.json({
     status: 'OK',
-    message: 'Hyphen Wellness Backend API is running!',
+    message: 'Hyphen Gym Backend API is running!',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     environment: process.env.NODE_ENV || 'development',
@@ -310,7 +310,7 @@ app.get('/api/health', (req, res) => {
 app.get('/', (req, res) => {
   res.json({ 
     status: 'OK', 
-    message: 'Hyphen Wellness Backend API is running!',
+    message: 'Hyphen Gym Backend API is running!',
     version: '1.0.0',
     timestamp: new Date().toISOString(),
     endpoints: {

@@ -157,7 +157,7 @@ router.post('/register', [
       const smtpSettings = await SMTPSettings.findOne({ isActive: true });
       if (smtpSettings && smtpSettings.emailTemplates?.welcome) {
         const welcomeTemplate = smtpSettings.emailTemplates.welcome;
-        let emailSubject = welcomeTemplate.subject || 'Welcome to Hyphen Wellness!';
+        let emailSubject = welcomeTemplate.subject || 'Welcome to Hyphen Gym!';
         let emailHtml = welcomeTemplate.template || '';
 
         // Replace template variables
@@ -179,7 +179,7 @@ router.post('/register', [
       } else {
         // Fallback to old template if SMTP templates not available
         const memberHtml = Email.templates.welcomeMemberTemplate({ firstName });
-        await Email.sendEmail({ to: email, subject: 'Welcome to Hyphen Wellness', html: memberHtml });
+        await Email.sendEmail({ to: email, subject: 'Welcome to Hyphen Gym', html: memberHtml });
       }
 
       // Send notification email to admin (rahulsasrwat57@gmail.com) about new registration
@@ -207,11 +207,11 @@ router.post('/register', [
           <div class="container">
             <div class="header">
               <h1>🎉 New User Registration</h1>
-              <p>Hyphen Wellness</p>
+              <p>Hyphen Gym</p>
             </div>
             <div class="content">
               <p>Hello Admin,</p>
-              <p>A new user has successfully registered on Hyphen Wellness!</p>
+              <p>A new user has successfully registered on Hyphen Gym!</p>
               <div class="info-box">
                 <h3>Registration Details</h3>
                 <p><strong>Name:</strong> ${user.firstName} ${user.lastName}</p>
@@ -224,10 +224,10 @@ router.post('/register', [
               </div>
               <p>Please review the new registration in your admin dashboard.</p>
               <a href="${dashboardUrl}" class="button">View Dashboard</a>
-              <p>Best regards,<br><strong>Hyphen Wellness System</strong></p>
+              <p>Best regards,<br><strong>Hyphen Gym System</strong></p>
             </div>
             <div class="footer">
-              <p>© 2024 Hyphen Wellness. All rights reserved.</p>
+              <p>© 2024 Hyphen Gym. All rights reserved.</p>
               <p>This is an automated notification from your gym management system.</p>
             </div>
           </div>
@@ -238,14 +238,14 @@ router.post('/register', [
       if (smtpSettings) {
         await smtpSettings.sendEmail(
           'rahulsarswat57@gmail.com',
-          `New User Registration - ${user.firstName} ${user.lastName} - Hyphen Wellness`,
+          `New User Registration - ${user.firstName} ${user.lastName} - Hyphen Gym`,
           notificationHtml
         );
         console.log('✅ Registration notification sent to rahulsarswat57@gmail.com');
       } else {
         // Fallback notification
         const notifyHtml = Email.templates.registrationNotificationTemplate({ firstName, lastName, email, role });
-        await Email.sendEmail({ to: 'rahulsarswat57@gmail.com', subject: 'New Registration - Hyphen Wellness', html: notifyHtml });
+        await Email.sendEmail({ to: 'rahulsarswat57@gmail.com', subject: 'New Registration - Hyphen Gym', html: notifyHtml });
       }
     } catch (e) {
       console.error('Registration email error:', e.message);
@@ -363,7 +363,7 @@ router.post('/admin/create-user', auth, [
           
           await smtpSettings.sendEmail(
             user.email,
-            `Welcome to Hyphen Wellness Trainer Team, ${user.firstName}!`,
+            `Welcome to Hyphen Gym Trainer Team, ${user.firstName}!`,
             emailHtml
           );
         } else {
@@ -380,7 +380,7 @@ router.post('/admin/create-user', auth, [
           
           await Email.sendEmail({
             to: user.email,
-            subject: `Welcome to Hyphen Wellness Trainer Team, ${user.firstName}!`,
+            subject: `Welcome to Hyphen Gym Trainer Team, ${user.firstName}!`,
             html: emailHtml
           });
         }
@@ -402,7 +402,7 @@ router.post('/admin/create-user', auth, [
           
           await smtpSettings.sendEmail(
             user.email,
-            `Welcome to Hyphen Wellness Staff Team, ${user.firstName}!`,
+            `Welcome to Hyphen Gym Staff Team, ${user.firstName}!`,
             emailHtml
           );
         } else {
@@ -420,7 +420,7 @@ router.post('/admin/create-user', auth, [
           
           await Email.sendEmail({
             to: user.email,
-            subject: `Welcome to Hyphen Wellness Staff Team, ${user.firstName}!`,
+            subject: `Welcome to Hyphen Gym Staff Team, ${user.firstName}!`,
             html: emailHtml
           });
         }
@@ -429,7 +429,7 @@ router.post('/admin/create-user', auth, [
         // Send member welcome email for other roles
         if (smtpSettings && smtpSettings.emailTemplates?.welcome) {
           const welcomeTemplate = smtpSettings.emailTemplates.welcome;
-          let emailSubject = welcomeTemplate.subject || 'Welcome to Hyphen Wellness!';
+          let emailSubject = welcomeTemplate.subject || 'Welcome to Hyphen Gym!';
           let emailHtml = welcomeTemplate.template || '';
 
           // Replace template variables
@@ -451,7 +451,7 @@ router.post('/admin/create-user', auth, [
         } else {
           // Fallback to old template if SMTP templates not available
           const memberHtml = Email.templates.welcomeMemberTemplate({ firstName });
-          await Email.sendEmail({ to: email, subject: 'Welcome to Hyphen Wellness', html: memberHtml });
+          await Email.sendEmail({ to: email, subject: 'Welcome to Hyphen Gym', html: memberHtml });
         }
       }
 
@@ -480,11 +480,11 @@ router.post('/admin/create-user', auth, [
           <div class="container">
             <div class="header">
               <h1>👤 New User Created</h1>
-              <p>Hyphen Wellness</p>
+              <p>Hyphen Gym</p>
             </div>
             <div class="content">
               <p>Hello Admin,</p>
-              <p>A new user has been created by admin on Hyphen Wellness!</p>
+              <p>A new user has been created by admin on Hyphen Gym!</p>
               <div class="info-box">
                 <h3>User Details</h3>
                 <p><strong>Name:</strong> ${user.firstName} ${user.lastName}</p>
@@ -498,10 +498,10 @@ router.post('/admin/create-user', auth, [
               </div>
               <p>Please review the new user in your admin dashboard.</p>
               <a href="${dashboardUrl}" class="button">View Dashboard</a>
-              <p>Best regards,<br><strong>Hyphen Wellness System</strong></p>
+              <p>Best regards,<br><strong>Hyphen Gym System</strong></p>
             </div>
             <div class="footer">
-              <p>© 2024 Hyphen Wellness. All rights reserved.</p>
+              <p>© 2024 Hyphen Gym. All rights reserved.</p>
               <p>This is an automated notification from your gym management system.</p>
             </div>
           </div>
@@ -512,14 +512,14 @@ router.post('/admin/create-user', auth, [
       if (smtpSettings) {
         await smtpSettings.sendEmail(
           'rahulsarswat57@gmail.com',
-          `New User Created - ${user.firstName} ${user.lastName} - Hyphen Wellness`,
+          `New User Created - ${user.firstName} ${user.lastName} - Hyphen Gym`,
           notificationHtml
         );
         console.log('✅ User creation notification sent to rahulsarswat57@gmail.com');
       } else {
         // Fallback notification
         const notifyHtml = Email.templates.registrationNotificationTemplate({ firstName, lastName, email, role });
-        await Email.sendEmail({ to: 'rahulsarswat57@gmail.com', subject: 'New User Created - Hyphen Wellness', html: notifyHtml });
+        await Email.sendEmail({ to: 'rahulsarswat57@gmail.com', subject: 'New User Created - Hyphen Gym', html: notifyHtml });
       }
     } catch (e) {
       console.error('Admin create user email error:', e.message);
@@ -807,7 +807,7 @@ router.put('/profile', auth, [
         });
         await Email.sendEmail({
           to: user.email,
-          subject: 'Profile Updated - Hyphen Wellness',
+          subject: 'Profile Updated - Hyphen Gym',
           html
         });
       } catch (e) {
@@ -884,7 +884,7 @@ router.put('/change-password', auth, [
       });
       await Email.sendEmail({
         to: user.email,
-        subject: 'Password Changed - Hyphen Wellness',
+        subject: 'Password Changed - Hyphen Gym',
         html
       });
     } catch (e) {
@@ -980,7 +980,7 @@ router.post('/forgot-password', [
       if (smtpSettings && smtpSettings.emailTemplates?.passwordReset) {
         // Use SMTP template
         const passwordResetTemplate = smtpSettings.emailTemplates.passwordReset;
-        let emailSubject = passwordResetTemplate.subject || 'Password Reset Request - Hyphen Wellness';
+        let emailSubject = passwordResetTemplate.subject || 'Password Reset Request - Hyphen Gym';
         let emailHtml = passwordResetTemplate.template || '';
         
         // Replace template variables
@@ -1006,7 +1006,7 @@ router.post('/forgot-password', [
         });
         await Email.sendEmail({
           to: user.email,
-          subject: 'Password Reset Request - Hyphen Wellness',
+          subject: 'Password Reset Request - Hyphen Gym',
           html
         });
         console.log(`✅ Password reset email sent to ${user.email} via fallback`);
@@ -1083,8 +1083,8 @@ router.post('/reset-password', [
       
       if (smtpSettings && smtpSettings.emailTemplates?.passwordReset) {
         // Use SMTP template (password changed notification)
-        let emailSubject = 'Password Changed Successfully - Hyphen Wellness';
-        let emailHtml = `Hi ${user.firstName},<br><br>Your password has been successfully changed on ${changeDate}.<br><br>If you did not make this change, please contact us immediately.<br><br>Best regards,<br>Hyphen Wellness Team`;
+        let emailSubject = 'Password Changed Successfully - Hyphen Gym';
+        let emailHtml = `Hi ${user.firstName},<br><br>Your password has been successfully changed on ${changeDate}.<br><br>If you did not make this change, please contact us immediately.<br><br>Best regards,<br>Hyphen Gym Team`;
         
         // Send email via SMTP
         await smtpSettings.sendEmail(user.email, emailSubject, emailHtml);
@@ -1098,7 +1098,7 @@ router.post('/reset-password', [
         });
         await Email.sendEmail({
           to: user.email,
-          subject: 'Password Changed Successfully - Hyphen Wellness',
+          subject: 'Password Changed Successfully - Hyphen Gym',
           html
         });
         console.log(`✅ Password changed email sent to ${user.email} via fallback`);

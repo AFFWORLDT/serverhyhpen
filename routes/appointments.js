@@ -223,7 +223,7 @@ router.post('/', auth, [
         });
         await Email.sendEmail({
           to: appointment.client.email,
-          subject: 'Appointment Booked - Hyphen Wellness',
+          subject: 'Appointment Booked - Hyphen Gym',
           html
         });
       }
@@ -295,7 +295,7 @@ router.put('/:id', auth, adminOrTrainerOrStaffAuth, async (req, res) => {
         });
         await Email.sendEmail({
           to: appointment.client.email,
-          subject: 'Appointment Rescheduled - Hyphen Wellness',
+          subject: 'Appointment Rescheduled - Hyphen Gym',
           html
         });
       } catch (e) {
@@ -463,7 +463,7 @@ router.put('/:id/cancel', auth, async (req, res) => {
         });
         await Email.sendEmail({
           to: appointment.client.email,
-          subject: 'Appointment Cancelled - Hyphen Wellness',
+          subject: 'Appointment Cancelled - Hyphen Gym',
           html
         });
       } catch (e) {

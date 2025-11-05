@@ -594,7 +594,7 @@ router.put('/:id/deactivate', auth, adminAuth, async (req, res) => {
       });
       await Email.sendEmail({
         to: member.email,
-        subject: 'Account Deactivated - Hyphen Wellness',
+        subject: 'Account Deactivated - Hyphen Gym',
         html
       });
     } catch (e) {
@@ -639,7 +639,7 @@ router.put('/:id/reactivate', auth, adminAuth, async (req, res) => {
       });
       await Email.sendEmail({
         to: member.email,
-        subject: 'Account Activated - Hyphen Wellness',
+        subject: 'Account Activated - Hyphen Gym',
         html
       });
     } catch (e) {
@@ -756,7 +756,7 @@ router.post('/:id/assign-programme', auth, adminOrTrainerAuth, [
       });
       await Email.sendEmail({
         to: member.email,
-        subject: 'Training Programme Assigned - Hyphen Wellness',
+        subject: 'Training Programme Assigned - Hyphen Gym',
         html
       });
     } catch (e) {
