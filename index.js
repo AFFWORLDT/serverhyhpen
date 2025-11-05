@@ -98,8 +98,25 @@ app.use((req, res, next) => {
 // MongoDB Connection - prefer env var with sensible default for local/dev
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/hypgymdubaiii';
 
-// Enhanced MongoDB connection with retry logic
+// Validate MongoDB URI is present
+if (!process.env.MONGODB_URI && process.env.NODE_ENV === 'production') {
+  console.error('❌ ERROR: MONGODB_URI environment variable is required in production!');
+  console.error('Please set MONGODB_URI in your environment variables.');
+}
+
+// Enhanced MongoDB connection with retry logic for production
+let connectionAttempts = 0;
+const MAX_RETRIES = 10;
+
 const connectWithRetry = () => {
+  if (connectionAttempts >= MAX_RETRIES) {
+    console.error(`❌ MongoDB connection failed after ${MAX_RETRIES} attempts. Stopping retries.`);
+    return;
+  }
+
+  connectionAttempts++;
+  console.log(`🔄 Attempting MongoDB connection (attempt ${connectionAttempts}/${MAX_RETRIES})...`);
+  
   mongoose.connect(MONGODB_URI, {
     serverSelectionTimeoutMS: 30000, // Increased for online environments
     socketTimeoutMS: 45000,
@@ -117,14 +134,27 @@ const connectWithRetry = () => {
   .then(() => {
     console.log('✅ MongoDB Connected Successfully');
     console.log('Connection state:', mongoose.connection.readyState);
+    console.log('Database:', mongoose.connection.db?.databaseName || 'unknown');
     console.log('MongoDB URI:', MONGODB_URI.replace(/\/\/.*@/, '//***:***@'));
+    connectionAttempts = 0; // Reset counter on success
   })
   .catch((error) => {
     console.error('❌ MongoDB Connection Error:', error.message);
     console.error('Error code:', error.code);
     console.error('Error name:', error.name);
-    console.error('Retrying connection in 5 seconds...');
-    setTimeout(connectWithRetry, 5000);
+    if (error.message.includes('authentication')) {
+      console.error('⚠️  Authentication failed. Check your MongoDB username and password.');
+    }
+    if (error.message.includes('ENOTFOUND') || error.message.includes('ENETUNREACH')) {
+      console.error('⚠️  Network error. Check your MongoDB connection string and network access.');
+    }
+    if (connectionAttempts < MAX_RETRIES) {
+      const retryDelay = Math.min(5000 * connectionAttempts, 30000); // Exponential backoff, max 30s
+      console.error(`Retrying connection in ${retryDelay/1000} seconds...`);
+      setTimeout(connectWithRetry, retryDelay);
+    } else {
+      console.error('❌ Maximum retry attempts reached. Please check your MongoDB configuration.');
+    }
   });
 };
 
@@ -163,18 +193,35 @@ mongoose.connection.on('reconnected', () => {
 // MongoDB connection check middleware
 const checkMongoConnection = (req, res, next) => {
   const connectionState = mongoose.connection.readyState;
-  console.log('MongoDB connection state:', connectionState);
   
-  if (connectionState !== 1) {
-    console.log('MongoDB not connected, state:', connectionState);
+  // Connection states: 0 = disconnected, 1 = connected, 2 = connecting, 3 = disconnecting
+  if (connectionState === 1) {
+    // Connected - allow request
+    next();
+  } else if (connectionState === 2) {
+    // Connecting - allow request but log warning
+    console.log('⚠️  MongoDB is connecting, state:', connectionState);
+    next();
+  } else {
+    // Not connected - attempt to reconnect and return error
+    console.log('❌ MongoDB not connected, state:', connectionState);
+    
+    // If not already attempting to connect, try to reconnect
+    if (connectionState === 0 && connectionAttempts < MAX_RETRIES) {
+      console.log('🔄 Attempting to reconnect to MongoDB...');
+      connectWithRetry();
+    }
+    
     return res.status(503).json({
       success: false,
       message: 'Database connection unavailable. Please try again later.',
       error: 'MongoDB not connected',
-      connectionState: connectionState
+      connectionState: connectionState,
+      hint: process.env.NODE_ENV === 'production' 
+        ? 'Please check MONGODB_URI environment variable and MongoDB Atlas network access settings.'
+        : 'Check your MongoDB connection string and ensure MongoDB is running.'
     });
   }
-  next();
 };
 
 // Swagger API Documentation
@@ -244,13 +291,24 @@ app.use('/api/search', checkMongoConnection, require('./routes/search'));
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
+  const connectionState = mongoose.connection.readyState;
+  const connectionStates = {
+    0: 'disconnected',
+    1: 'connected',
+    2: 'connecting',
+    3: 'disconnecting'
+  };
+  
   res.json({
     status: 'OK',
     message: 'Hyphen Wellness Backend API is running!',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     environment: process.env.NODE_ENV || 'development',
-    mongodb: mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected'
+    mongodb: connectionStates[connectionState] || 'unknown',
+    connectionState: connectionState,
+    hasMongoURI: !!process.env.MONGODB_URI,
+    connectionAttempts: connectionAttempts
   });
 });
 
