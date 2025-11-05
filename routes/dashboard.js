@@ -1,6 +1,6 @@
 const express = require('express');
 const { GymSession } = require('../models/GymSession');
-const { Membership } = require('../models/Membership');
+const MemberPackage = require('../models/MemberPackage');
 const Payment = require('../models/Payment');
 const { auth } = require('../middleware/auth');
 
@@ -11,17 +11,17 @@ router.post('/checkin', auth, async (req, res) => {
   try {
     const { memberId } = req.body;
 
-    // Check if member has active membership
-    const activeMembership = await Membership.findOne({
+    // Check if member has active package (packages ARE memberships)
+    const activePackage = await MemberPackage.findOne({
       member: memberId,
       status: 'active',
-      endDate: { $gt: new Date() }
+      validityEnd: { $gt: new Date() }
     });
 
-    if (!activeMembership) {
+    if (!activePackage) {
       return res.status(400).json({
         success: false,
-        message: 'Member does not have an active membership'
+        message: 'Member does not have an active package'
       });
     }
 
@@ -166,37 +166,38 @@ router.get('/sessions/history', auth, async (req, res) => {
 // Get member's membership status
 router.get('/membership-status/:memberId', auth, async (req, res) => {
   try {
-    const membership = await Membership.findOne({
+    const packageItem = await MemberPackage.findOne({
       member: req.params.memberId,
       status: 'active'
     })
-    .populate('plan')
-    .populate('member', 'firstName lastName email phone');
+    .populate('package', 'name sessions pricePerSession totalPrice validityMonths features')
+    .populate('member', 'firstName lastName email phone profileImage')
+    .lean();
 
-    if (!membership) {
+    if (!packageItem) {
       return res.status(404).json({
         success: false,
-        message: 'No active membership found'
+        message: 'No active package found'
       });
     }
 
-    // Check if membership is expired
-    const isExpired = new Date() > membership.endDate;
+    // Check if package is expired
+    const isExpired = new Date() > new Date(packageItem.validityEnd);
     if (isExpired) {
-      membership.status = 'expired';
-      await membership.save();
+      await MemberPackage.findByIdAndUpdate(packageItem._id, { status: 'expired' });
+      packageItem.status = 'expired';
     }
 
     res.json({
       success: true,
-      data: { membership }
+      data: { membership: packageItem } // Keep 'membership' key for backward compatibility
     });
 
   } catch (error) {
-    console.error('Get membership status error:', error);
+    console.error('Get package status error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error while fetching membership status'
+      message: 'Server error while fetching package status'
     });
   }
 });

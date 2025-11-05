@@ -524,13 +524,13 @@ router.post('/assign', isAdminOrStaff, async (req, res) => {
 });
 
 // Get member's packages (history + active)
-router.get('/member/:memberId', async (req, res) => {
+router.get('/member/:memberId', auth, async (req, res) => {
   try {
     const { memberId } = req.params;
     const { status } = req.query;
     
     // Authorization: member can only view their own, admin/staff can view any
-    if (req.user.role === 'member' && req.user.userId !== memberId) {
+    if (req.user && req.user.role === 'member' && req.user.userId.toString() !== memberId.toString()) {
       return res.status(403).json({ error: 'Access denied' });
     }
     
@@ -541,7 +541,7 @@ router.get('/member/:memberId', async (req, res) => {
     
     const packages = await MemberPackage.find(filter)
       .populate('package', 'name sessions pricePerSession totalPrice validityMonths')
-      .populate('assignedTrainer', 'firstName lastName email')
+      .populate('assignedTrainer', 'firstName lastName email profileImage')
       .populate('purchasedBy', 'firstName lastName')
       .sort({ createdAt: -1 });
     
@@ -553,12 +553,12 @@ router.get('/member/:memberId', async (req, res) => {
 });
 
 // Get member's active package
-router.get('/member/:memberId/active', async (req, res) => {
+router.get('/member/:memberId/active', auth, async (req, res) => {
   try {
     const { memberId } = req.params;
     
-    // Authorization (skip if no user - public access for admin viewing)
-    if (req.user && req.user.role === 'member' && req.user.userId !== memberId) {
+    // Authorization: member can only view their own, admin/staff can view any
+    if (req.user && req.user.role === 'member' && req.user.userId.toString() !== memberId.toString()) {
       return res.status(403).json({ error: 'Access denied' });
     }
     
@@ -567,7 +567,7 @@ router.get('/member/:memberId/active', async (req, res) => {
       status: 'active'
     })
       .populate('package', 'name sessions pricePerSession totalPrice validityMonths features')
-      .populate('assignedTrainer', 'firstName lastName email phone')
+      .populate('assignedTrainer', 'firstName lastName email phone profileImage')
       .sort({ validityEnd: -1 }); // Get the one expiring last if multiple active
     
     if (!activePackage) {

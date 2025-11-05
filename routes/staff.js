@@ -587,6 +587,59 @@ router.post('/', auth, adminAuth, [
 
     await staffMember.save();
 
+    // Send account creation email to staff member
+    try {
+      const Email = require('../utils/email');
+      const SMTPSettings = require('../models/SMTPSettings');
+      
+      // Try to use SMTP settings first
+      const smtpSettings = await SMTPSettings.findOne({ isActive: true });
+      
+      if (smtpSettings) {
+        const emailHtml = Email.templates.staffAccountCreatedTemplate({
+          firstName: staffMember.firstName,
+          lastName: staffMember.lastName,
+          email: staffMember.email,
+          password: password, // Include password in email
+          position: staffMember.position,
+          department: staffMember.department,
+          employeeId: staffMember.employeeId,
+          loginUrl: process.env.FRONTEND_URL || 'http://localhost:3000/login',
+          createdByName: `${req.user.firstName || 'Admin'} ${req.user.lastName || ''}`.trim()
+        });
+        
+        await smtpSettings.sendEmail(
+          staffMember.email,
+          `Welcome to Hyphen Wellness Staff Team, ${staffMember.firstName}!`,
+          emailHtml
+        );
+        console.log(`✅ Staff account creation email sent to ${staffMember.email}`);
+      } else {
+        // Fallback to direct email sending
+        const emailHtml = Email.templates.staffAccountCreatedTemplate({
+          firstName: staffMember.firstName,
+          lastName: staffMember.lastName,
+          email: staffMember.email,
+          password: password,
+          position: staffMember.position,
+          department: staffMember.department,
+          employeeId: staffMember.employeeId,
+          loginUrl: process.env.FRONTEND_URL || 'http://localhost:3000/login',
+          createdByName: `${req.user.firstName || 'Admin'} ${req.user.lastName || ''}`.trim()
+        });
+        
+        await Email.sendEmail({
+          to: staffMember.email,
+          subject: `Welcome to Hyphen Wellness Staff Team, ${staffMember.firstName}!`,
+          html: emailHtml
+        });
+        console.log(`✅ Staff account creation email sent to ${staffMember.email}`);
+      }
+    } catch (emailError) {
+      console.error('Error sending staff account creation email:', emailError);
+      // Don't fail the request if email fails
+    }
+
     res.status(201).json({
       success: true,
       message: 'Staff member created successfully',

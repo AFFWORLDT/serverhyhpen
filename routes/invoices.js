@@ -27,15 +27,25 @@ const generateInvoiceNumber = async () => {
  */
 router.get('/', auth, async (req, res) => {
   try {
-    const { status, client } = req.query;
+    const { status, client, member } = req.query;
     let filter = {};
+    
+    // Members can only view their own invoices
+    if (req.user.role === 'member') {
+      filter.client = req.user.userId;
+    } else {
+      // Admin/staff can filter by client or member
+      if (client) filter.client = client;
+      if (member) filter.client = member;
+    }
+    
     if (status) filter.status = status;
-    if (client) filter.client = client;
 
     const invoices = await Invoice.find(filter)
-      .populate('client', 'firstName lastName email')
+      .populate('client', 'firstName lastName email profileImage')
       .populate('createdBy', 'firstName lastName')
-      .sort({ invoiceDate: -1 });
+      .sort({ invoiceDate: -1 })
+      .lean(); // Use .lean() for better performance
 
     res.json({
       success: true,
@@ -86,6 +96,11 @@ router.get('/:id', auth, async (req, res) => {
     
     if (!invoice) {
       return res.status(404).json({ success: false, message: 'Invoice not found' });
+    }
+
+    // Members can only view their own invoices
+    if (req.user.role === 'member' && invoice.client._id.toString() !== req.user.userId) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
     }
 
     res.json({ success: true, data: { invoice } });
@@ -208,6 +223,11 @@ router.get('/:id/pdf', auth, async (req, res) => {
     
     if (!invoice) {
       return res.status(404).json({ success: false, message: 'Invoice not found' });
+    }
+
+    // Members can only download their own invoices
+    if (req.user.role === 'member' && invoice.client._id.toString() !== req.user.userId) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
     }
 
     const companySettings = await CompanySettings.findOne();

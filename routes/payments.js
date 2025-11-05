@@ -766,19 +766,30 @@ router.put('/:id/status', auth, adminAuth, [
   }
 });
 
-// Get payments by member (Admin/Staff only - Trainers cannot see payments)
+// Get payments by member (Members can view their own, Admin/Staff can view any)
 router.get('/member/:memberId', auth, async (req, res) => {
   try {
-    // Only admin and staff can access payment information
-    if (req.user.role !== 'admin' && req.user.role !== 'staff') {
+    const { memberId } = req.params;
+    
+    // Authorization: Members can only view their own payments, admin/staff can view any
+    if (req.user.role === 'member' && req.user.userId.toString() !== memberId.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. You can only view your own payments.'
+      });
+    }
+    
+    // Trainers cannot view payments
+    if (req.user.role === 'trainer') {
       return res.status(403).json({
         success: false,
         message: 'Access denied. Payment information is confidential.'
       });
     }
 
-    const payments = await Payment.find({ member: req.params.memberId })
-      .populate('membership')
+    const payments = await Payment.find({ member: memberId })
+      .populate('member', 'firstName lastName email phone profileImage')
+      .populate('membership', 'plan name status')
       .populate('processedBy', 'firstName lastName')
       .sort({ createdAt: -1 });
 

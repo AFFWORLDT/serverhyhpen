@@ -430,6 +430,57 @@ router.post('/', auth, adminAuth, [
 
     await trainer.save();
 
+    // Send account creation email to trainer
+    try {
+      const Email = require('../utils/email');
+      const SMTPSettings = require('../models/SMTPSettings');
+      
+      // Try to use SMTP settings first
+      const smtpSettings = await SMTPSettings.findOne({ isActive: true });
+      
+      if (smtpSettings) {
+        const emailHtml = Email.templates.trainerAccountCreatedTemplate({
+          firstName: trainer.firstName,
+          lastName: trainer.lastName,
+          email: trainer.email,
+          password: password, // Include password in email
+          specialization: trainer.specialization,
+          hourlyRate: trainer.hourlyRate,
+          loginUrl: process.env.FRONTEND_URL || 'http://localhost:3000/login',
+          createdByName: creatorName
+        });
+        
+        await smtpSettings.sendEmail(
+          trainer.email,
+          `Welcome to Hyphen Wellness Trainer Team, ${trainer.firstName}!`,
+          emailHtml
+        );
+        console.log(`✅ Trainer account creation email sent to ${trainer.email}`);
+      } else {
+        // Fallback to direct email sending
+        const emailHtml = Email.templates.trainerAccountCreatedTemplate({
+          firstName: trainer.firstName,
+          lastName: trainer.lastName,
+          email: trainer.email,
+          password: password,
+          specialization: trainer.specialization,
+          hourlyRate: trainer.hourlyRate,
+          loginUrl: process.env.FRONTEND_URL || 'http://localhost:3000/login',
+          createdByName: creatorName
+        });
+        
+        await Email.sendEmail({
+          to: trainer.email,
+          subject: `Welcome to Hyphen Wellness Trainer Team, ${trainer.firstName}!`,
+          html: emailHtml
+        });
+        console.log(`✅ Trainer account creation email sent to ${trainer.email}`);
+      }
+    } catch (emailError) {
+      console.error('Error sending trainer account creation email:', emailError);
+      // Don't fail the request if email fails
+    }
+
     res.status(201).json({
       success: true,
       message: 'Trainer created successfully',

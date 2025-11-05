@@ -71,45 +71,7 @@ if (mongoose.models.SupportTicket) {
 const SupportTicket = mongoose.model('SupportTicket', supportTicketSchema);
 
 // Get my support tickets (any authenticated user) - MUST BE BEFORE /:id route
-router.get('/tickets/my-tickets', auth, async (req, res) => {
-  try {
-    const { status, page = 1, limit = 20 } = req.query;
-    const skip = (page - 1) * limit;
-
-    const query = { createdBy: req.user.userId };
-    if (status) {
-      query.status = status;
-    }
-
-    const tickets = await SupportTicket.find(query)
-      .populate('memberId', 'firstName lastName email')
-      .populate('assignedTo', 'firstName lastName email')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(parseInt(limit));
-
-    const total = await SupportTicket.countDocuments(query);
-
-    res.json({
-      success: true,
-      data: {
-        tickets,
-        pagination: {
-          current: parseInt(page),
-          pages: Math.ceil(total / limit),
-          total
-        }
-      }
-    });
-  } catch (error) {
-    console.error('Get my support tickets error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch support tickets',
-      error: error.message
-    });
-  }
-});
+// This route is kept for backward compatibility
 
 // Get all support tickets (admin/staff/trainer)
 router.get('/tickets', auth, adminOrTrainerOrStaffAuth, async (req, res) => {
@@ -181,9 +143,9 @@ router.get('/tickets/:id', auth, adminOrTrainerOrStaffAuth, async (req, res) => 
   }
 });
 
-// Create new support ticket
-router.post('/tickets', auth, adminOrTrainerOrStaffAuth, [
-  body('memberId').isMongoId().withMessage('Valid member ID is required'),
+// Create new support ticket (admin/staff can create for any member, members create for themselves)
+router.post('/tickets', auth, [
+  body('memberId').optional().isMongoId().withMessage('Valid member ID is required'),
   body('subject').isLength({ min: 1, max: 200 }).withMessage('Subject must be between 1 and 200 characters'),
   body('description').isLength({ min: 1, max: 1000 }).withMessage('Description must be between 1 and 1000 characters'),
   body('priority').optional().isIn(['low', 'medium', 'high', 'urgent']).withMessage('Invalid priority'),
@@ -206,8 +168,21 @@ router.post('/tickets', auth, adminOrTrainerOrStaffAuth, [
 
     const { memberId, subject, description, priority = 'medium', category = 'general' } = req.body;
 
+    // Determine the memberId: members create for themselves, admin/staff can specify
+    let finalMemberId = memberId;
+    if (req.user.role === 'member') {
+      // Members always create tickets for themselves
+      finalMemberId = req.user.userId;
+    } else if (!memberId) {
+      // Admin/staff must provide memberId
+      return res.status(400).json({
+        success: false,
+        message: 'Member ID is required'
+      });
+    }
+
     console.log('Creating support ticket with data:', {
-      memberId,
+      memberId: finalMemberId,
       subject,
       description,
       priority,
@@ -217,7 +192,7 @@ router.post('/tickets', auth, adminOrTrainerOrStaffAuth, [
     });
 
     // Verify member exists
-    const member = await User.findById(memberId);
+    const member = await User.findById(finalMemberId);
     if (!member) {
       return res.status(404).json({
         success: false,
@@ -226,7 +201,7 @@ router.post('/tickets', auth, adminOrTrainerOrStaffAuth, [
     }
 
     const ticket = new SupportTicket({
-      memberId,
+      memberId: finalMemberId,
       subject,
       description,
       priority,

@@ -9,8 +9,8 @@ const Class = require('../models/Class');
 
 const router = express.Router();
 
-// Get all classes
-router.get('/', auth, adminOrTrainerOrStaffAuth, async (req, res) => {
+// Get all classes (accessible by all authenticated users including members)
+router.get('/', auth, async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
@@ -67,8 +67,8 @@ router.get('/', auth, adminOrTrainerOrStaffAuth, async (req, res) => {
   }
 });
 
-// Get class by ID
-router.get('/:id', auth, adminOrTrainerAuth, async (req, res) => {
+// Get class by ID (accessible by all authenticated users including members)
+router.get('/:id', auth, async (req, res) => {
   try {
     const classData = await Class.findById(req.params.id)
       .populate('trainer', 'firstName lastName email phone')

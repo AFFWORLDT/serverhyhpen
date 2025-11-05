@@ -361,8 +361,8 @@ router.post('/:id/profile-image', auth, adminAuth, upload.single('profileImage')
   }
 });
 
-// Get member by ID
-router.get('/:id', auth, adminOrTrainerOrStaffAuth, async (req, res) => {
+// Get member by ID (Members can view their own, Admin/Staff/Trainer can view any)
+router.get('/:id', auth, async (req, res) => {
   try {
     console.log('Fetching member with ID:', req.params.id);
     
@@ -374,9 +374,17 @@ router.get('/:id', auth, adminOrTrainerOrStaffAuth, async (req, res) => {
       });
     }
     
+    // Authorization: Members can only view their own data
+    if (req.user.role === 'member' && req.user.userId.toString() !== req.params.id) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. You can only view your own data.'
+      });
+    }
+    
     const member = await User.findById(req.params.id)
       .select('-password')
-      .populate('assignedTrainer', 'firstName lastName email phone specialization');
+      .populate('assignedTrainer', 'firstName lastName email phone specialization profileImage');
 
     console.log('Found member:', member);
 
@@ -656,20 +664,24 @@ router.put('/:id/reactivate', auth, adminAuth, async (req, res) => {
 // Get member's membership history
 router.get('/:id/memberships', auth, adminOrTrainerOrStaffAuth, async (req, res) => {
   try {
-    const memberships = await Membership.find({ member: req.params.id })
-      .populate('plan')
-      .sort({ createdAt: -1 });
+    // Return packages instead of memberships - packages ARE memberships
+    const packages = await MemberPackage.find({ member: req.params.id })
+      .populate('package', 'name sessions pricePerSession totalPrice validityMonths features')
+      .populate('assignedTrainer', 'firstName lastName email profileImage')
+      .populate('purchasedBy', 'firstName lastName')
+      .sort({ createdAt: -1 })
+      .lean();
 
     res.json({
       success: true,
-      data: { memberships }
+      data: { memberships: packages } // Keep 'memberships' key for backward compatibility
     });
 
   } catch (error) {
-    console.error('Get member memberships error:', error);
+    console.error('Get member packages (memberships) error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error while fetching member memberships'
+      message: 'Server error while fetching member packages'
     });
   }
 });

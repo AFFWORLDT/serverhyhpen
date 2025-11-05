@@ -1,6 +1,8 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
 const { MembershipPlan, Membership } = require('../models/Membership');
+const MemberPackage = require('../models/MemberPackage');
+const Package = require('../models/Package');
 const User = require('../models/User');
 const { auth, adminAuth, adminOrTrainerAuth, adminOrTrainerOrStaffAuth } = require('../middleware/auth');
 const Email = require('../utils/email');
@@ -561,20 +563,24 @@ router.get('/my-memberships', auth, async (req, res) => {
   try {
     const memberId = req.user.userId;
     
-    const memberships = await Membership.find({ member: memberId })
-      .populate('plan')
-      .sort({ createdAt: -1 });
+    // Return packages instead of memberships - packages ARE memberships
+    const packages = await MemberPackage.find({ member: memberId })
+      .populate('package', 'name sessions pricePerSession totalPrice validityMonths features')
+      .populate('assignedTrainer', 'firstName lastName email profileImage')
+      .populate('purchasedBy', 'firstName lastName')
+      .sort({ createdAt: -1 })
+      .lean();
 
     res.json({
       success: true,
-      data: { memberships }
+      data: { memberships: packages } // Keep 'memberships' key for backward compatibility
     });
 
   } catch (error) {
-    console.error('Get my memberships error:', error);
+    console.error('Get my packages (memberships) error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error while fetching memberships'
+      message: 'Server error while fetching packages'
     });
   }
 });

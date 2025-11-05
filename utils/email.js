@@ -331,6 +331,118 @@ function profileUpdatedTemplate({ firstName, changes }) {
   return buildBaseTemplate({ title: 'Profile Updated - Hyphen Wellness', bodyHtml: body });
 }
 
+function trainerAccountCreatedTemplate({ firstName, lastName, email, password, specialization, hourlyRate, loginUrl = 'http://localhost:3000/login', createdByName }) {
+  const body = `
+    <div class="icon">💪</div>
+    <h1>Welcome to Hyphen Wellness Trainer Team, ${firstName}!</h1>
+    <p>Hi ${firstName}${lastName ? ' ' + lastName : ''},</p>
+    <p>Your trainer account has been created successfully by ${createdByName || 'the management team'}. We're excited to have you on board!</p>
+    <div class="success-box">
+      <p style="margin: 0; color: #166534; font-weight: 600;">✅ Trainer Account Created Successfully</p>
+    </div>
+    <div class="info-box">
+      <p style="margin: 0 0 12px; font-weight: 600;">Your Account Details:</p>
+      <div class="detail-row">
+        <span class="detail-label">Email:</span>
+        <span class="detail-value">${email}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Password:</span>
+        <span class="detail-value">${password}</span>
+      </div>
+      ${specialization ? `
+      <div class="detail-row">
+        <span class="detail-label">Specialization:</span>
+        <span class="detail-value">${specialization}</span>
+      </div>
+      ` : ''}
+      ${hourlyRate ? `
+      <div class="detail-row">
+        <span class="detail-label">Hourly Rate:</span>
+        <span class="detail-value">AED ${hourlyRate}</span>
+      </div>
+      ` : ''}
+    </div>
+    <div class="warning-box">
+      <p style="margin: 0 0 8px; color: #92400e; font-weight: 600;">🔐 Security Notice</p>
+      <p style="margin: 0; color: #92400e; font-size: 14px;">Please change your password after your first login for security purposes.</p>
+    </div>
+    <p>As a trainer, you can now:</p>
+    <ul>
+      <li>Manage your training sessions and schedule</li>
+      <li>View and manage your assigned members</li>
+      <li>Track member progress and attendance</li>
+      <li>Update your availability hours</li>
+      <li>View your performance analytics</li>
+      <li>Access training resources and tools</li>
+    </ul>
+    <div class="text-center mt-16">
+      <a href="${loginUrl}" class="btn">Log in to Your Trainer Account</a>
+    </div>
+    <p class="muted text-center">If you have any questions or need assistance, feel free to contact our support team.</p>
+  `;
+  return buildBaseTemplate({ title: 'Trainer Account Created - Hyphen Wellness', bodyHtml: body, headerColor: 'linear-gradient(135deg,#10b981,#059669)' });
+}
+
+function staffAccountCreatedTemplate({ firstName, lastName, email, password, position, department, employeeId, loginUrl = 'http://localhost:3000/login', createdByName }) {
+  const body = `
+    <div class="icon">👔</div>
+    <h1>Welcome to Hyphen Wellness Staff Team, ${firstName}!</h1>
+    <p>Hi ${firstName}${lastName ? ' ' + lastName : ''},</p>
+    <p>Your staff account has been created successfully by ${createdByName || 'the management team'}. We're thrilled to have you join our team!</p>
+    <div class="success-box">
+      <p style="margin: 0; color: #166534; font-weight: 600;">✅ Staff Account Created Successfully</p>
+    </div>
+    <div class="info-box">
+      <p style="margin: 0 0 12px; font-weight: 600;">Your Account Details:</p>
+      <div class="detail-row">
+        <span class="detail-label">Email:</span>
+        <span class="detail-value">${email}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Password:</span>
+        <span class="detail-value">${password}</span>
+      </div>
+      ${position ? `
+      <div class="detail-row">
+        <span class="detail-label">Position:</span>
+        <span class="detail-value">${position}</span>
+      </div>
+      ` : ''}
+      ${department ? `
+      <div class="detail-row">
+        <span class="detail-label">Department:</span>
+        <span class="detail-value">${department}</span>
+      </div>
+      ` : ''}
+      ${employeeId ? `
+      <div class="detail-row">
+        <span class="detail-label">Employee ID:</span>
+        <span class="detail-value">${employeeId}</span>
+      </div>
+      ` : ''}
+    </div>
+    <div class="warning-box">
+      <p style="margin: 0 0 8px; color: #92400e; font-weight: 600;">🔐 Security Notice</p>
+      <p style="margin: 0; color: #92400e; font-size: 14px;">Please change your password after your first login for security purposes.</p>
+    </div>
+    <p>As a staff member, you can now:</p>
+    <ul>
+      <li>Access your staff dashboard</li>
+      <li>Manage member check-ins and check-outs</li>
+      <li>Process payments and transactions</li>
+      <li>View schedules and appointments</li>
+      <li>Access reports and analytics</li>
+      <li>Manage facility operations</li>
+    </ul>
+    <div class="text-center mt-16">
+      <a href="${loginUrl}" class="btn">Log in to Your Staff Account</a>
+    </div>
+    <p class="muted text-center">If you have any questions or need assistance, feel free to contact our support team.</p>
+  `;
+  return buildBaseTemplate({ title: 'Staff Account Created - Hyphen Wellness', bodyHtml: body, headerColor: 'linear-gradient(135deg,#2563eb,#1d4ed8)' });
+}
+
 // ============================================
 // MEMBERSHIP TEMPLATES
 // ============================================
@@ -1357,6 +1469,8 @@ module.exports = {
     accountActivatedTemplate,
     accountDeactivatedTemplate,
     profileUpdatedTemplate,
+    trainerAccountCreatedTemplate,
+    staffAccountCreatedTemplate,
     
     // Membership
     membershipAssignedTemplate,

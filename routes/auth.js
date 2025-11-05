@@ -341,33 +341,116 @@ router.post('/admin/create-user', auth, [
 
     // Send welcome and internal notification emails
     try {
-      // Send welcome email to the newly created user using SMTP templates
       const smtpSettings = await SMTPSettings.findOne({ isActive: true });
-      if (smtpSettings && smtpSettings.emailTemplates?.welcome) {
-        const welcomeTemplate = smtpSettings.emailTemplates.welcome;
-        let emailSubject = welcomeTemplate.subject || 'Welcome to Hyphen Wellness!';
-        let emailHtml = welcomeTemplate.template || '';
-
-        // Replace template variables
-        emailSubject = emailSubject.replace(/{{firstName}}/g, user.firstName);
-        emailSubject = emailSubject.replace(/{{lastName}}/g, user.lastName);
-        emailSubject = emailSubject.replace(/{{email}}/g, user.email);
-        emailSubject = emailSubject.replace(/{{memberId}}/g, user._id.toString());
-        emailSubject = emailSubject.replace(/{{loginUrl}}/g, 'http://localhost:3000/login');
-
-        emailHtml = emailHtml.replace(/{{firstName}}/g, user.firstName);
-        emailHtml = emailHtml.replace(/{{lastName}}/g, user.lastName);
-        emailHtml = emailHtml.replace(/{{email}}/g, user.email);
-        emailHtml = emailHtml.replace(/{{memberId}}/g, user._id.toString());
-        emailHtml = emailHtml.replace(/{{loginUrl}}/g, 'http://localhost:3000/login');
-
-        // Send welcome email to the new user
-        await smtpSettings.sendEmail(user.email, emailSubject, emailHtml);
-        console.log(`✅ Onboarding email sent to ${user.email}`);
+      const Email = require('../utils/email');
+      
+      // Send role-specific account creation emails
+      if (role === 'trainer') {
+        // Send trainer account creation email
+        if (smtpSettings) {
+          const emailHtml = Email.templates.trainerAccountCreatedTemplate({
+            firstName: user.firstName,
+            lastName: user.lastName,
+            email: user.email,
+            password: password,
+            specialization: user.specialization,
+            hourlyRate: user.hourlyRate,
+            loginUrl: process.env.FRONTEND_URL || 'http://localhost:3000/login',
+            createdByName: `${req.user.firstName || 'Admin'} ${req.user.lastName || ''}`.trim()
+          });
+          
+          await smtpSettings.sendEmail(
+            user.email,
+            `Welcome to Hyphen Wellness Trainer Team, ${user.firstName}!`,
+            emailHtml
+          );
+        } else {
+          const emailHtml = Email.templates.trainerAccountCreatedTemplate({
+            firstName: user.firstName,
+            lastName: user.lastName,
+            email: user.email,
+            password: password,
+            specialization: user.specialization,
+            hourlyRate: user.hourlyRate,
+            loginUrl: process.env.FRONTEND_URL || 'http://localhost:3000/login',
+            createdByName: `${req.user.firstName || 'Admin'} ${req.user.lastName || ''}`.trim()
+          });
+          
+          await Email.sendEmail({
+            to: user.email,
+            subject: `Welcome to Hyphen Wellness Trainer Team, ${user.firstName}!`,
+            html: emailHtml
+          });
+        }
+        console.log(`✅ Trainer account creation email sent to ${user.email}`);
+      } else if (role === 'staff') {
+        // Send staff account creation email
+        if (smtpSettings) {
+          const emailHtml = Email.templates.staffAccountCreatedTemplate({
+            firstName: user.firstName,
+            lastName: user.lastName,
+            email: user.email,
+            password: password,
+            position: user.position,
+            department: user.department,
+            employeeId: user.employeeId,
+            loginUrl: process.env.FRONTEND_URL || 'http://localhost:3000/login',
+            createdByName: `${req.user.firstName || 'Admin'} ${req.user.lastName || ''}`.trim()
+          });
+          
+          await smtpSettings.sendEmail(
+            user.email,
+            `Welcome to Hyphen Wellness Staff Team, ${user.firstName}!`,
+            emailHtml
+          );
+        } else {
+          const emailHtml = Email.templates.staffAccountCreatedTemplate({
+            firstName: user.firstName,
+            lastName: user.lastName,
+            email: user.email,
+            password: password,
+            position: user.position,
+            department: user.department,
+            employeeId: user.employeeId,
+            loginUrl: process.env.FRONTEND_URL || 'http://localhost:3000/login',
+            createdByName: `${req.user.firstName || 'Admin'} ${req.user.lastName || ''}`.trim()
+          });
+          
+          await Email.sendEmail({
+            to: user.email,
+            subject: `Welcome to Hyphen Wellness Staff Team, ${user.firstName}!`,
+            html: emailHtml
+          });
+        }
+        console.log(`✅ Staff account creation email sent to ${user.email}`);
       } else {
-        // Fallback to old template if SMTP templates not available
-        const memberHtml = Email.templates.welcomeMemberTemplate({ firstName });
-        await Email.sendEmail({ to: email, subject: 'Welcome to Hyphen Wellness', html: memberHtml });
+        // Send member welcome email for other roles
+        if (smtpSettings && smtpSettings.emailTemplates?.welcome) {
+          const welcomeTemplate = smtpSettings.emailTemplates.welcome;
+          let emailSubject = welcomeTemplate.subject || 'Welcome to Hyphen Wellness!';
+          let emailHtml = welcomeTemplate.template || '';
+
+          // Replace template variables
+          emailSubject = emailSubject.replace(/{{firstName}}/g, user.firstName);
+          emailSubject = emailSubject.replace(/{{lastName}}/g, user.lastName);
+          emailSubject = emailSubject.replace(/{{email}}/g, user.email);
+          emailSubject = emailSubject.replace(/{{memberId}}/g, user._id.toString());
+          emailSubject = emailSubject.replace(/{{loginUrl}}/g, 'http://localhost:3000/login');
+
+          emailHtml = emailHtml.replace(/{{firstName}}/g, user.firstName);
+          emailHtml = emailHtml.replace(/{{lastName}}/g, user.lastName);
+          emailHtml = emailHtml.replace(/{{email}}/g, user.email);
+          emailHtml = emailHtml.replace(/{{memberId}}/g, user._id.toString());
+          emailHtml = emailHtml.replace(/{{loginUrl}}/g, 'http://localhost:3000/login');
+
+          // Send welcome email to the new user
+          await smtpSettings.sendEmail(user.email, emailSubject, emailHtml);
+          console.log(`✅ Onboarding email sent to ${user.email}`);
+        } else {
+          // Fallback to old template if SMTP templates not available
+          const memberHtml = Email.templates.welcomeMemberTemplate({ firstName });
+          await Email.sendEmail({ to: email, subject: 'Welcome to Hyphen Wellness', html: memberHtml });
+        }
       }
 
       // Send notification email to admin (rahulsasrwat57@gmail.com) about new user creation
@@ -622,9 +705,16 @@ router.get('/profile', auth, async (req, res) => {
       userData.profileImage = null;
     }
 
+    // Ensure user object has both _id and id for compatibility
+    const responseUser = {
+      ...userData,
+      id: userData._id, // Add id field for compatibility with login response
+      userId: userData._id // Add userId field for compatibility
+    };
+
     res.json({
       success: true,
-      data: { user: userData }
+      data: { user: responseUser }
     });
 
   } catch (error) {

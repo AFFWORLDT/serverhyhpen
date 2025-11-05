@@ -146,9 +146,9 @@ router.get('/:id', auth, async (req, res) => {
   }
 });
 
-// Create appointment
-router.post('/', auth, adminOrTrainerOrStaffAuth, [
-  body('client').isMongoId().withMessage('Valid client ID required'),
+// Create appointment (Members can create for themselves, admin/staff/trainer can create for any)
+router.post('/', auth, [
+  body('client').optional().isMongoId().withMessage('Valid client ID required'),
   body('staff').isMongoId().withMessage('Valid staff ID required'),
   body('startTime').isISO8601().withMessage('Valid start time required'),
   body('duration').isInt({ min: 15 }).withMessage('Duration must be at least 15 minutes')
@@ -159,7 +159,15 @@ router.post('/', auth, adminOrTrainerOrStaffAuth, [
       return res.status(400).json({ success: false, errors: errors.array() });
     }
 
-    const { client, staff, program, location, startTime, duration, title, description, recurring, notes, color } = req.body;
+    // Determine client: members create for themselves, admin/staff can specify
+    let finalClient = req.body.client;
+    if (req.user.role === 'member') {
+      finalClient = req.user.userId;
+    } else if (!req.body.client) {
+      return res.status(400).json({ success: false, message: 'Client ID is required' });
+    }
+
+    const { staff, program, location, startTime, duration, title, description, recurring, notes, color } = req.body;
 
     // Calculate end time
     const start = new Date(startTime);
@@ -173,7 +181,7 @@ router.post('/', auth, adminOrTrainerOrStaffAuth, [
     }
 
     const appointment = new Appointment({
-      client,
+      client: finalClient,
       staff,
       program,
       location: location || 'Main Gym',

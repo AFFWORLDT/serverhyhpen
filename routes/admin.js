@@ -1,7 +1,7 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
-const { Membership } = require('../models/Membership');
+const MemberPackage = require('../models/MemberPackage');
 const Payment = require('../models/Payment');
 const { GymSession } = require('../models/GymSession');
 const { auth, adminAuth } = require('../middleware/auth');
@@ -23,9 +23,9 @@ router.get('/stats', auth, adminAuth, async (req, res) => {
       createdAt: { $gte: startOfMonth }
     });
 
-    // Active memberships
-    const activeMemberships = await Membership.countDocuments({ status: 'active' });
-    const expiredMemberships = await Membership.countDocuments({ status: 'expired' });
+    // Active packages (packages ARE memberships)
+    const activePackages = await MemberPackage.countDocuments({ status: 'active' });
+    const expiredPackages = await MemberPackage.countDocuments({ status: 'expired' });
 
     // Revenue statistics
     const todayRevenue = await Payment.aggregate([
@@ -95,8 +95,8 @@ router.get('/stats', auth, adminAuth, async (req, res) => {
           newThisMonth: newMembersThisMonth
         },
         memberships: {
-          active: activeMemberships,
-          expired: expiredMemberships
+          active: activePackages,
+          expired: expiredPackages
         },
         revenue: {
           today: todayRevenue[0]?.total || 0,
@@ -139,20 +139,21 @@ router.get('/activities', auth, adminAuth, async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(5);
 
-    // Recent memberships
-    const recentMemberships = await Membership.find()
-      .populate('member', 'firstName lastName')
-      .populate('plan', 'name')
-      .select('status startDate endDate createdAt')
+    // Recent packages (packages ARE memberships)
+    const recentPackages = await MemberPackage.find()
+      .populate('member', 'firstName lastName email profileImage')
+      .populate('package', 'name sessions totalPrice')
+      .select('status validityStart validityEnd createdAt')
       .sort({ createdAt: -1 })
-      .limit(5);
+      .limit(5)
+      .lean();
 
     res.json({
       success: true,
       data: {
         recentMembers,
         recentPayments,
-        recentMemberships
+        recentMemberships: recentPackages // Keep key name for backward compatibility
       }
     });
 
@@ -209,10 +210,10 @@ router.get('/revenue-chart', auth, adminAuth, async (req, res) => {
   }
 });
 
-// Get membership chart data
+// Get package chart data (packages ARE memberships)
 router.get('/membership-chart', auth, adminAuth, async (req, res) => {
   try {
-    const membershipStats = await Membership.aggregate([
+    const packageStats = await MemberPackage.aggregate([
       {
         $group: {
           _id: '$status',
@@ -221,21 +222,21 @@ router.get('/membership-chart', auth, adminAuth, async (req, res) => {
       }
     ]);
 
-    const planStats = await Membership.aggregate([
+    const packagePlanStats = await MemberPackage.aggregate([
       {
         $lookup: {
-          from: 'membershipplans',
-          localField: 'plan',
+          from: 'packages',
+          localField: 'package',
           foreignField: '_id',
-          as: 'planDetails'
+          as: 'packageDetails'
         }
       },
       {
-        $unwind: '$planDetails'
+        $unwind: '$packageDetails'
       },
       {
         $group: {
-          _id: '$planDetails.name',
+          _id: '$packageDetails.name',
           count: { $sum: 1 }
         }
       }
@@ -244,8 +245,8 @@ router.get('/membership-chart', auth, adminAuth, async (req, res) => {
     res.json({
       success: true,
       data: {
-        statusStats: membershipStats,
-        planStats: planStats
+        statusStats: packageStats,
+        planStats: packagePlanStats
       }
     });
 
