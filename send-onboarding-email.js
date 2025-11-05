@@ -41,7 +41,7 @@ async function sendOnboardingEmail() {
     console.log('1️⃣ Sending welcome email to:', testUser.email);
     if (settings.emailTemplates?.welcome) {
       const welcomeTemplate = settings.emailTemplates.welcome;
-      let emailSubject = welcomeTemplate.subject || 'Welcome to Hyphen Wellness!';
+      let emailSubject = welcomeTemplate.subject || 'Welcome to Hyphen Gym!';
       let emailHtml = welcomeTemplate.template || '';
 
       // Replace template variables
@@ -94,11 +94,11 @@ async function sendOnboardingEmail() {
         <div class="container">
           <div class="header">
             <h1>🎉 New User Registration</h1>
-            <p>Hyphen Wellness</p>
+            <p>Hyphen Gym</p>
           </div>
           <div class="content">
             <p>Hello Admin,</p>
-            <p>A new user has successfully registered on Hyphen Wellness!</p>
+            <p>A new user has successfully registered on Hyphen Gym!</p>
             <div class="info-box">
               <h3>Registration Details</h3>
               <p><strong>Name:</strong> ${testUser.firstName} ${testUser.lastName}</p>
@@ -110,10 +110,10 @@ async function sendOnboardingEmail() {
             </div>
             <p>Please review the new registration in your admin dashboard.</p>
             <a href="http://localhost:3000/dashboard" class="button">View Dashboard</a>
-            <p>Best regards,<br><strong>Hyphen Wellness System</strong></p>
+            <p>Best regards,<br><strong>Hyphen Gym System</strong></p>
           </div>
           <div class="footer">
-            <p>© 2024 Hyphen Wellness. All rights reserved.</p>
+            <p>© 2024 Hyphen Gym. All rights reserved.</p>
             <p>This is an automated notification from your gym management system.</p>
           </div>
         </div>
@@ -123,7 +123,7 @@ async function sendOnboardingEmail() {
 
     const notificationResult = await settings.sendEmail(
       'rahulsarswat57@gmail.com',
-      `New User Registration - ${testUser.firstName} ${testUser.lastName} - Hyphen Wellness`,
+      `New User Registration - ${testUser.firstName} ${testUser.lastName} - Hyphen Gym`,
       notificationHtml
     );
 

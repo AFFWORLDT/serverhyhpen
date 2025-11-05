@@ -33,7 +33,7 @@ const smtpSettingsSchema = new mongoose.Schema({
     type: String,
     required: true,
     trim: true,
-    default: 'Hyphen Wellness'
+    default: 'Hyphen Gym'
   },
   isActive: {
     type: Boolean,
