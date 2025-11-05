@@ -605,17 +605,6 @@ router.post('/login', [
   body('password').notEmpty().withMessage('Password is required')
 ], async (req, res) => {
   try {
-    // Check database connection
-    const connectionState = mongoose.connection.readyState;
-    if (connectionState !== 1) {
-      return res.status(503).json({
-        success: false,
-        message: 'Database connection unavailable. Please try again later.',
-        error: 'Database not connected',
-        connectionState: connectionState
-      });
-    }
-
     // Check validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
