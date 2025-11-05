@@ -95,14 +95,8 @@ app.use((req, res, next) => {
   next();
 });
 
-// MongoDB Connection - prefer env var with sensible default for local/dev
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/hypgymdubaiii';
-
-// Validate MongoDB URI is present
-if (!process.env.MONGODB_URI && process.env.NODE_ENV === 'production') {
-  console.error('❌ ERROR: MONGODB_URI environment variable is required in production!');
-  console.error('Please set MONGODB_URI in your environment variables.');
-}
+// MongoDB Connection - prefer env var with sensible default
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://affworldtechnologies:wMbiyR0ZM8JWfOYl@loc.6qmwn3p.mongodb.net/hypgymdubaiii';
 
 // Enhanced MongoDB connection with retry logic for production
 let connectionAttempts = 0;
