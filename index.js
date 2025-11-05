@@ -22,7 +22,7 @@ const io = socketIo(server, {
     credentials: true
   }
 });
-const PORT = 5001;
+const PORT = process.env.PORT || 5001;
 
 // Middleware
 app.use(cors({
@@ -95,8 +95,8 @@ app.use((req, res, next) => {
   next();
 });
 
-// MongoDB Connection - Using direct connection string
-const MONGODB_URI = 'mongodb+srv://affworldtechnologies:wMbiyR0ZM8JWfOYl@loc.6qmwn3p.mongodb.net/hypgymdubaiii?retryWrites=true&w=majority';
+// MongoDB Connection - prefer env var with sensible default for local/dev
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/hypgymdubaiii';
 
 // Enhanced MongoDB connection with retry logic
 const connectWithRetry = () => {
