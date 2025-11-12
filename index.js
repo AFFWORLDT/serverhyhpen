@@ -95,8 +95,14 @@ app.use((req, res, next) => {
   next();
 });
 
-// MongoDB Connection - prefer env var with sensible default
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://affworldtechnologies:wMbiyR0ZM8JWfOYl@loc.6qmwn3p.mongodb.net/hypgymdubaiii';
+// MongoDB Connection - prefer env var with sensible default for local/dev
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/hypgymdubaiii';
+
+// Validate MongoDB URI is present
+if (!process.env.MONGODB_URI && process.env.NODE_ENV === 'production') {
+  console.error('❌ ERROR: MONGODB_URI environment variable is required in production!');
+  console.error('Please set MONGODB_URI in your environment variables.');
+}
 
 // Enhanced MongoDB connection with retry logic for production
 let connectionAttempts = 0;
@@ -272,6 +278,9 @@ app.use('/api/faq', checkMongoConnection, require('./routes/faq'));
 app.use('/api/support', checkMongoConnection, require('./routes/support'));
 app.use('/api/appointments', checkMongoConnection, require('./routes/appointments'));
 app.use('/api/packages', checkMongoConnection, require('./routes/packages'));
+app.use('/api/package-categories', checkMongoConnection, require('./routes/packageCategories'));
+app.use('/api/roles', checkMongoConnection, require('./routes/roles'));
+app.use('/api/permissions', checkMongoConnection, require('./routes/permissions'));
 app.use('/api/departments', checkMongoConnection, require('./routes/departments'));
 app.use('/api/leave', checkMongoConnection, require('./routes/leave'));
 app.use('/api/payroll', checkMongoConnection, require('./routes/payroll'));
@@ -295,7 +304,7 @@ app.get('/api/health', (req, res) => {
   
   res.json({
     status: 'OK',
-    message: 'Hyphen Gym Backend API is running!',
+    message: 'Hyphen Wellness Backend API is running!',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     environment: process.env.NODE_ENV || 'development',
@@ -310,7 +319,7 @@ app.get('/api/health', (req, res) => {
 app.get('/', (req, res) => {
   res.json({ 
     status: 'OK', 
-    message: 'Hyphen Gym Backend API is running!',
+    message: 'Hyphen Wellness Backend API is running!',
     version: '1.0.0',
     timestamp: new Date().toISOString(),
     endpoints: {

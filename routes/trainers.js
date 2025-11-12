@@ -446,13 +446,13 @@ router.post('/', auth, adminAuth, [
           password: password, // Include password in email
           specialization: trainer.specialization,
           hourlyRate: trainer.hourlyRate,
-          loginUrl: process.env.FRONTEND_URL || 'https://hyphendubai.vercel.app/login',
+          loginUrl: process.env.FRONTEND_URL || 'http://localhost:3000/login',
           createdByName: creatorName
         });
         
         await smtpSettings.sendEmail(
           trainer.email,
-          `Welcome to Hyphen Gym Trainer Team, ${trainer.firstName}!`,
+          `Welcome to Hyphen Wellness Trainer Team, ${trainer.firstName}!`,
           emailHtml
         );
         console.log(`✅ Trainer account creation email sent to ${trainer.email}`);
@@ -465,13 +465,13 @@ router.post('/', auth, adminAuth, [
           password: password,
           specialization: trainer.specialization,
           hourlyRate: trainer.hourlyRate,
-          loginUrl: process.env.FRONTEND_URL || 'https://hyphendubai.vercel.app/login',
+          loginUrl: process.env.FRONTEND_URL || 'http://localhost:3000/login',
           createdByName: creatorName
         });
         
         await Email.sendEmail({
           to: trainer.email,
-          subject: `Welcome to Hyphen Gym Trainer Team, ${trainer.firstName}!`,
+          subject: `Welcome to Hyphen Wellness Trainer Team, ${trainer.firstName}!`,
           html: emailHtml
         });
         console.log(`✅ Trainer account creation email sent to ${trainer.email}`);

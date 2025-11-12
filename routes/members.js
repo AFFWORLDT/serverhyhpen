@@ -506,7 +506,8 @@ router.put('/:id', auth, adminOrTrainerOrStaffAuth, [
   body('email').optional().isEmail().normalizeEmail(),
   body('phone').optional().isMobilePhone(),
   body('dateOfBirth').optional().isISO8601(),
-  body('gender').optional().isIn(['male', 'female', 'other'])
+  body('gender').optional().isIn(['male', 'female', 'other']),
+  body('profileImage').optional().isString(),
 ], async (req, res) => {
   try {
     // Check validation errors
@@ -519,8 +520,16 @@ router.put('/:id', auth, adminOrTrainerOrStaffAuth, [
       });
     }
 
-    const allowedUpdates = ['firstName', 'lastName', 'email', 'phone', 'dateOfBirth', 'gender', 'address', 'emergencyContact', 'isActive', 'createdAt'];
-    const updates = {};
+    const allowedUpdates = ['firstName', 'lastName', 'profileImage', 'email', 'phone', 'dateOfBirth', 'gender', 'address', 'emergencyContact', 'isActive', 'createdAt'];
+    const updates = {
+      firstName: req.body.firstName,
+      lastName: req.body.lastName,
+      profileImage: req.body.profileImage,
+      email: req.body.email,
+      phone: req.body.phone,
+      dateOfBirth: req.body.dateOfBirth,
+      gender: req.body.gender,
+    };
 
     Object.keys(req.body).forEach(key => {
       if (allowedUpdates.includes(key)) {
@@ -594,7 +603,7 @@ router.put('/:id/deactivate', auth, adminAuth, async (req, res) => {
       });
       await Email.sendEmail({
         to: member.email,
-        subject: 'Account Deactivated - Hyphen Gym',
+        subject: 'Account Deactivated - Hyphen Wellness',
         html
       });
     } catch (e) {
@@ -639,7 +648,7 @@ router.put('/:id/reactivate', auth, adminAuth, async (req, res) => {
       });
       await Email.sendEmail({
         to: member.email,
-        subject: 'Account Activated - Hyphen Gym',
+        subject: 'Account Activated - Hyphen Wellness',
         html
       });
     } catch (e) {
@@ -756,7 +765,7 @@ router.post('/:id/assign-programme', auth, adminOrTrainerAuth, [
       });
       await Email.sendEmail({
         to: member.email,
-        subject: 'Training Programme Assigned - Hyphen Gym',
+        subject: 'Training Programme Assigned - Hyphen Wellness',
         html
       });
     } catch (e) {

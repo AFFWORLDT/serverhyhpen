@@ -1,4 +1,4 @@
-  # Hyphen Wellness - Backend API
+   # Hyphen Wellness - Backend API
 
 A comprehensive gym management system backend built with Node.js, Express.js, and MongoDB.
 
@@ -142,6 +142,7 @@ Authorization: Bearer <your_jwt_token>
 3. Deploy with one click
 
 ## 📊 Database Schema
+
 ### User Model
 ```javascript
 {

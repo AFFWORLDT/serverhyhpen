@@ -73,8 +73,19 @@ const staffPositionAuth = (allowedPositions = []) => {
 
 // Admin only
 const isAdmin = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ 
+      success: false,
+      error: 'Authentication required',
+      message: 'Please log in to access this resource'
+    });
+  }
   if (req.user.role !== 'admin') {
-    return res.status(403).json({ error: 'Admin access required' });
+    return res.status(403).json({ 
+      success: false,
+      error: 'Admin access required',
+      message: 'You do not have permission to access this resource'
+    });
   }
   next();
 };

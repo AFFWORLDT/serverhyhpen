@@ -11,14 +11,14 @@ const zohoConfig = {
   username: 'train@hyphendxb.ae',
   password: '$Dubai@2025#',
   fromEmail: 'train@hyphendxb.ae',
-  fromName: 'Hyphen Gym',
+  fromName: 'Hyphen Wellness',
   testEmail: 'train@hyphendxb.ae'
 };
 
 // Enhanced Email Templates
 const emailTemplates = {
   welcome: {
-    subject: 'Welcome to Hyphen Gym!',
+    subject: 'Welcome to Hyphen Wellness!',
     template: `
       <!DOCTYPE html>
       <html>
@@ -35,11 +35,11 @@ const emailTemplates = {
       <body>
         <div class="container">
           <div class="header">
-            <h1>🏋️ Welcome to Hyphen Gym!</h1>
+            <h1>🏋️ Welcome to Hyphen Wellness!</h1>
           </div>
           <div class="content">
             <p>Hi {{firstName}},</p>
-            <p>Welcome to Hyphen Gym! We're excited to have you join our fitness community.</p>
+            <p>Welcome to Hyphen Wellness! We're excited to have you join our fitness community.</p>
             <p>Your account has been successfully created. Here are your account details:</p>
             <ul>
               <li><strong>Email:</strong> {{email}}</li>
@@ -48,10 +48,10 @@ const emailTemplates = {
             <p>You can now access your dashboard and start your fitness journey with us.</p>
             <a href="{{loginUrl}}" class="button">Login to Dashboard</a>
             <p>If you have any questions, feel free to contact us.</p>
-            <p>Best regards,<br>Hyphen Gym Team</p>
+            <p>Best regards,<br>Hyphen Wellness Team</p>
           </div>
           <div class="footer">
-            <p>© 2024 Hyphen Gym. All rights reserved.</p>
+            <p>© 2024 Hyphen Wellness. All rights reserved.</p>
           </div>
         </div>
       </body>
@@ -89,10 +89,10 @@ const emailTemplates = {
               <p><strong>Location:</strong> {{location}}</p>
             </div>
             <p>We look forward to seeing you!</p>
-            <p>Best regards,<br>Hyphen Gym Team</p>
+            <p>Best regards,<br>Hyphen Wellness Team</p>
           </div>
           <div class="footer">
-            <p>© 2024 Hyphen Gym. All rights reserved.</p>
+            <p>© 2024 Hyphen Wellness. All rights reserved.</p>
           </div>
         </div>
       </body>
@@ -127,11 +127,11 @@ const emailTemplates = {
             <h3>{{eventTitle}}</h3>
             <p>Status: <span class="status {{status}}">{{status}}</span></p>
             <p>Date: {{date}}</p>
-            <p>Thank you for being part of Hyphen Gym!</p>
-            <p>Best regards,<br>Hyphen Gym Team</p>
+            <p>Thank you for being part of Hyphen Wellness!</p>
+            <p>Best regards,<br>Hyphen Wellness Team</p>
           </div>
           <div class="footer">
-            <p>© 2024 Hyphen Gym. All rights reserved.</p>
+            <p>© 2024 Hyphen Wellness. All rights reserved.</p>
           </div>
         </div>
       </body>
@@ -139,7 +139,7 @@ const emailTemplates = {
     `
   },
   passwordReset: {
-    subject: 'Password Reset Request - Hyphen Gym',
+    subject: 'Password Reset Request - Hyphen Wellness',
     template: `
       <!DOCTYPE html>
       <html>
@@ -161,7 +161,7 @@ const emailTemplates = {
           </div>
           <div class="content">
             <p>Hi {{firstName}},</p>
-            <p>We received a request to reset your password for your Hyphen Gym account.</p>
+            <p>We received a request to reset your password for your Hyphen Wellness account.</p>
             <p>Click the button below to reset your password:</p>
             <a href="{{resetLink}}" class="button">Reset Password</a>
             <div class="warning">
@@ -170,10 +170,10 @@ const emailTemplates = {
             </div>
             <p>If the button doesn't work, copy and paste this link into your browser:</p>
             <p style="word-break: break-all; color: #667eea;">{{resetLink}}</p>
-            <p>Best regards,<br>Hyphen Gym Team</p>
+            <p>Best regards,<br>Hyphen Wellness Team</p>
           </div>
           <div class="footer">
-            <p>© 2024 Hyphen Gym. All rights reserved.</p>
+            <p>© 2024 Hyphen Wellness. All rights reserved.</p>
           </div>
         </div>
       </body>
@@ -210,10 +210,10 @@ const emailTemplates = {
               <p><strong>Duration:</strong> {{duration}} minutes</p>
             </div>
             <p>Please arrive 10 minutes early for check-in.</p>
-            <p>Best regards,<br>Hyphen Gym Team</p>
+            <p>Best regards,<br>Hyphen Wellness Team</p>
           </div>
           <div class="footer">
-            <p>© 2024 Hyphen Gym. All rights reserved.</p>
+            <p>© 2024 Hyphen Wellness. All rights reserved.</p>
           </div>
         </div>
       </body>
@@ -221,7 +221,7 @@ const emailTemplates = {
     `
   },
   membershipRenewal: {
-    subject: 'Membership Renewal Reminder - Hyphen Gym',
+    subject: 'Membership Renewal Reminder - Hyphen Wellness',
     template: `
       <!DOCTYPE html>
       <html>
@@ -251,10 +251,10 @@ const emailTemplates = {
             </div>
             <p>Renew now to continue enjoying all our facilities and services!</p>
             <a href="{{renewalUrl}}" class="button">Renew Membership</a>
-            <p>Best regards,<br>Hyphen Gym Team</p>
+            <p>Best regards,<br>Hyphen Wellness Team</p>
           </div>
           <div class="footer">
-            <p>© 2024 Hyphen Gym. All rights reserved.</p>
+            <p>© 2024 Hyphen Wellness. All rights reserved.</p>
           </div>
         </div>
       </body>

@@ -35,6 +35,17 @@ const userSchema = new mongoose.Schema({
     enum: ['admin', 'trainer', 'member', 'staff'],
     default: 'member'
   },
+  // Dynamic role system - references Role model
+  assignedRole: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Role',
+    default: null
+  },
+  // Additional roles (for multi-role support)
+  additionalRoles: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Role'
+  }],
   dateOfBirth: {
     type: Date,
     required: false

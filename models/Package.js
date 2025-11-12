@@ -41,11 +41,11 @@ const packageSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
-  // Metadata
+  // Metadata - now references PackageCategory slug dynamically
   category: {
     type: String,
-    enum: ['starter', 'basic', 'premium', 'platinum', 'custom'],
-    default: 'basic'
+    trim: true,
+    default: 'basic' // Default fallback, but will be validated against existing categories
   },
   // Features included in this package
   features: [{

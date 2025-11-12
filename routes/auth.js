@@ -1,6 +1,5 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
-const mongoose = require('mongoose');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const { auth } = require('../middleware/auth');
@@ -157,7 +156,7 @@ router.post('/register', [
       const smtpSettings = await SMTPSettings.findOne({ isActive: true });
       if (smtpSettings && smtpSettings.emailTemplates?.welcome) {
         const welcomeTemplate = smtpSettings.emailTemplates.welcome;
-        let emailSubject = welcomeTemplate.subject || 'Welcome to Hyphen Gym!';
+        let emailSubject = welcomeTemplate.subject || 'Welcome to Hyphen Wellness!';
         let emailHtml = welcomeTemplate.template || '';
 
         // Replace template variables
@@ -165,13 +164,13 @@ router.post('/register', [
         emailSubject = emailSubject.replace(/{{lastName}}/g, user.lastName);
         emailSubject = emailSubject.replace(/{{email}}/g, user.email);
         emailSubject = emailSubject.replace(/{{memberId}}/g, user._id.toString());
-        emailSubject = emailSubject.replace(/{{loginUrl}}/g, process.env.FRONTEND_URL ? `${process.env.FRONTEND_URL}/login` : 'https://hyphendubai.vercel.app/login');
+        emailSubject = emailSubject.replace(/{{loginUrl}}/g, 'http://localhost:3000/login');
 
         emailHtml = emailHtml.replace(/{{firstName}}/g, user.firstName);
         emailHtml = emailHtml.replace(/{{lastName}}/g, user.lastName);
         emailHtml = emailHtml.replace(/{{email}}/g, user.email);
         emailHtml = emailHtml.replace(/{{memberId}}/g, user._id.toString());
-        emailHtml = emailHtml.replace(/{{loginUrl}}/g, process.env.FRONTEND_URL ? `${process.env.FRONTEND_URL}/login` : 'https://hyphendubai.vercel.app/login');
+        emailHtml = emailHtml.replace(/{{loginUrl}}/g, 'http://localhost:3000/login');
 
         // Send welcome email to the new user
         await smtpSettings.sendEmail(user.email, emailSubject, emailHtml);
@@ -179,11 +178,10 @@ router.post('/register', [
       } else {
         // Fallback to old template if SMTP templates not available
         const memberHtml = Email.templates.welcomeMemberTemplate({ firstName });
-        await Email.sendEmail({ to: email, subject: 'Welcome to Hyphen Gym', html: memberHtml });
+        await Email.sendEmail({ to: email, subject: 'Welcome to Hyphen Wellness', html: memberHtml });
       }
 
       // Send notification email to admin (rahulsasrwat57@gmail.com) about new registration
-      const dashboardUrl = process.env.FRONTEND_URL ? `${process.env.FRONTEND_URL}/dashboard` : 'https://hyphendubai.vercel.app/dashboard';
       const notificationHtml = `
         <!DOCTYPE html>
         <html>
@@ -207,11 +205,11 @@ router.post('/register', [
           <div class="container">
             <div class="header">
               <h1>🎉 New User Registration</h1>
-              <p>Hyphen Gym</p>
+              <p>Hyphen Wellness</p>
             </div>
             <div class="content">
               <p>Hello Admin,</p>
-              <p>A new user has successfully registered on Hyphen Gym!</p>
+              <p>A new user has successfully registered on Hyphen Wellness!</p>
               <div class="info-box">
                 <h3>Registration Details</h3>
                 <p><strong>Name:</strong> ${user.firstName} ${user.lastName}</p>
@@ -223,11 +221,11 @@ router.post('/register', [
                 ${user.specialization ? `<p><strong>Specialization:</strong> ${user.specialization}</p>` : ''}
               </div>
               <p>Please review the new registration in your admin dashboard.</p>
-              <a href="${dashboardUrl}" class="button">View Dashboard</a>
-              <p>Best regards,<br><strong>Hyphen Gym System</strong></p>
+              <a href="http://localhost:3000/dashboard" class="button">View Dashboard</a>
+              <p>Best regards,<br><strong>Hyphen Wellness System</strong></p>
             </div>
             <div class="footer">
-              <p>© 2024 Hyphen Gym. All rights reserved.</p>
+              <p>© 2024 Hyphen Wellness. All rights reserved.</p>
               <p>This is an automated notification from your gym management system.</p>
             </div>
           </div>
@@ -238,14 +236,14 @@ router.post('/register', [
       if (smtpSettings) {
         await smtpSettings.sendEmail(
           'rahulsarswat57@gmail.com',
-          `New User Registration - ${user.firstName} ${user.lastName} - Hyphen Gym`,
+          `New User Registration - ${user.firstName} ${user.lastName} - Hyphen Wellness`,
           notificationHtml
         );
         console.log('✅ Registration notification sent to rahulsarswat57@gmail.com');
       } else {
         // Fallback notification
         const notifyHtml = Email.templates.registrationNotificationTemplate({ firstName, lastName, email, role });
-        await Email.sendEmail({ to: 'rahulsarswat57@gmail.com', subject: 'New Registration - Hyphen Gym', html: notifyHtml });
+        await Email.sendEmail({ to: 'rahulsarswat57@gmail.com', subject: 'New Registration - Hyphen Wellness', html: notifyHtml });
       }
     } catch (e) {
       console.error('Registration email error:', e.message);
@@ -357,13 +355,13 @@ router.post('/admin/create-user', auth, [
             password: password,
             specialization: user.specialization,
             hourlyRate: user.hourlyRate,
-            loginUrl: process.env.FRONTEND_URL || 'https://hyphendubai.vercel.app/login',
+            loginUrl: process.env.FRONTEND_URL || 'http://localhost:3000/login',
             createdByName: `${req.user.firstName || 'Admin'} ${req.user.lastName || ''}`.trim()
           });
           
           await smtpSettings.sendEmail(
             user.email,
-            `Welcome to Hyphen Gym Trainer Team, ${user.firstName}!`,
+            `Welcome to Hyphen Wellness Trainer Team, ${user.firstName}!`,
             emailHtml
           );
         } else {
@@ -374,13 +372,13 @@ router.post('/admin/create-user', auth, [
             password: password,
             specialization: user.specialization,
             hourlyRate: user.hourlyRate,
-            loginUrl: process.env.FRONTEND_URL || 'https://hyphendubai.vercel.app/login',
+            loginUrl: process.env.FRONTEND_URL || 'http://localhost:3000/login',
             createdByName: `${req.user.firstName || 'Admin'} ${req.user.lastName || ''}`.trim()
           });
           
           await Email.sendEmail({
             to: user.email,
-            subject: `Welcome to Hyphen Gym Trainer Team, ${user.firstName}!`,
+            subject: `Welcome to Hyphen Wellness Trainer Team, ${user.firstName}!`,
             html: emailHtml
           });
         }
@@ -396,13 +394,13 @@ router.post('/admin/create-user', auth, [
             position: user.position,
             department: user.department,
             employeeId: user.employeeId,
-            loginUrl: process.env.FRONTEND_URL || 'https://hyphendubai.vercel.app/login',
+            loginUrl: process.env.FRONTEND_URL || 'http://localhost:3000/login',
             createdByName: `${req.user.firstName || 'Admin'} ${req.user.lastName || ''}`.trim()
           });
           
           await smtpSettings.sendEmail(
             user.email,
-            `Welcome to Hyphen Gym Staff Team, ${user.firstName}!`,
+            `Welcome to Hyphen Wellness Staff Team, ${user.firstName}!`,
             emailHtml
           );
         } else {
@@ -414,13 +412,13 @@ router.post('/admin/create-user', auth, [
             position: user.position,
             department: user.department,
             employeeId: user.employeeId,
-            loginUrl: process.env.FRONTEND_URL || 'https://hyphendubai.vercel.app/login',
+            loginUrl: process.env.FRONTEND_URL || 'http://localhost:3000/login',
             createdByName: `${req.user.firstName || 'Admin'} ${req.user.lastName || ''}`.trim()
           });
           
           await Email.sendEmail({
             to: user.email,
-            subject: `Welcome to Hyphen Gym Staff Team, ${user.firstName}!`,
+            subject: `Welcome to Hyphen Wellness Staff Team, ${user.firstName}!`,
             html: emailHtml
           });
         }
@@ -429,7 +427,7 @@ router.post('/admin/create-user', auth, [
         // Send member welcome email for other roles
         if (smtpSettings && smtpSettings.emailTemplates?.welcome) {
           const welcomeTemplate = smtpSettings.emailTemplates.welcome;
-          let emailSubject = welcomeTemplate.subject || 'Welcome to Hyphen Gym!';
+          let emailSubject = welcomeTemplate.subject || 'Welcome to Hyphen Wellness!';
           let emailHtml = welcomeTemplate.template || '';
 
           // Replace template variables
@@ -437,13 +435,13 @@ router.post('/admin/create-user', auth, [
           emailSubject = emailSubject.replace(/{{lastName}}/g, user.lastName);
           emailSubject = emailSubject.replace(/{{email}}/g, user.email);
           emailSubject = emailSubject.replace(/{{memberId}}/g, user._id.toString());
-          emailSubject = emailSubject.replace(/{{loginUrl}}/g, process.env.FRONTEND_URL ? `${process.env.FRONTEND_URL}/login` : 'https://hyphendubai.vercel.app/login');
+          emailSubject = emailSubject.replace(/{{loginUrl}}/g, 'http://localhost:3000/login');
 
           emailHtml = emailHtml.replace(/{{firstName}}/g, user.firstName);
           emailHtml = emailHtml.replace(/{{lastName}}/g, user.lastName);
           emailHtml = emailHtml.replace(/{{email}}/g, user.email);
           emailHtml = emailHtml.replace(/{{memberId}}/g, user._id.toString());
-          emailHtml = emailHtml.replace(/{{loginUrl}}/g, process.env.FRONTEND_URL ? `${process.env.FRONTEND_URL}/login` : 'https://hyphendubai.vercel.app/login');
+          emailHtml = emailHtml.replace(/{{loginUrl}}/g, 'http://localhost:3000/login');
 
           // Send welcome email to the new user
           await smtpSettings.sendEmail(user.email, emailSubject, emailHtml);
@@ -451,12 +449,11 @@ router.post('/admin/create-user', auth, [
         } else {
           // Fallback to old template if SMTP templates not available
           const memberHtml = Email.templates.welcomeMemberTemplate({ firstName });
-          await Email.sendEmail({ to: email, subject: 'Welcome to Hyphen Gym', html: memberHtml });
+          await Email.sendEmail({ to: email, subject: 'Welcome to Hyphen Wellness', html: memberHtml });
         }
       }
 
       // Send notification email to admin (rahulsasrwat57@gmail.com) about new user creation
-      const dashboardUrl = process.env.FRONTEND_URL ? `${process.env.FRONTEND_URL}/dashboard` : 'https://hyphendubai.vercel.app/dashboard';
       const notificationHtml = `
         <!DOCTYPE html>
         <html>
@@ -480,11 +477,11 @@ router.post('/admin/create-user', auth, [
           <div class="container">
             <div class="header">
               <h1>👤 New User Created</h1>
-              <p>Hyphen Gym</p>
+              <p>Hyphen Wellness</p>
             </div>
             <div class="content">
               <p>Hello Admin,</p>
-              <p>A new user has been created by admin on Hyphen Gym!</p>
+              <p>A new user has been created by admin on Hyphen Wellness!</p>
               <div class="info-box">
                 <h3>User Details</h3>
                 <p><strong>Name:</strong> ${user.firstName} ${user.lastName}</p>
@@ -497,11 +494,11 @@ router.post('/admin/create-user', auth, [
                 ${user.department ? `<p><strong>Department:</strong> ${user.department}</p>` : ''}
               </div>
               <p>Please review the new user in your admin dashboard.</p>
-              <a href="${dashboardUrl}" class="button">View Dashboard</a>
-              <p>Best regards,<br><strong>Hyphen Gym System</strong></p>
+              <a href="http://localhost:3000/dashboard" class="button">View Dashboard</a>
+              <p>Best regards,<br><strong>Hyphen Wellness System</strong></p>
             </div>
             <div class="footer">
-              <p>© 2024 Hyphen Gym. All rights reserved.</p>
+              <p>© 2024 Hyphen Wellness. All rights reserved.</p>
               <p>This is an automated notification from your gym management system.</p>
             </div>
           </div>
@@ -512,14 +509,14 @@ router.post('/admin/create-user', auth, [
       if (smtpSettings) {
         await smtpSettings.sendEmail(
           'rahulsarswat57@gmail.com',
-          `New User Created - ${user.firstName} ${user.lastName} - Hyphen Gym`,
+          `New User Created - ${user.firstName} ${user.lastName} - Hyphen Wellness`,
           notificationHtml
         );
         console.log('✅ User creation notification sent to rahulsarswat57@gmail.com');
       } else {
         // Fallback notification
         const notifyHtml = Email.templates.registrationNotificationTemplate({ firstName, lastName, email, role });
-        await Email.sendEmail({ to: 'rahulsarswat57@gmail.com', subject: 'New User Created - Hyphen Gym', html: notifyHtml });
+        await Email.sendEmail({ to: 'rahulsarswat57@gmail.com', subject: 'New User Created - Hyphen Wellness', html: notifyHtml });
       }
     } catch (e) {
       console.error('Admin create user email error:', e.message);
@@ -684,21 +681,21 @@ router.post('/login', [
   } catch (error) {
     console.error('Login error:', error);
     console.error('Error stack:', error.stack);
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
     
-    // Handle specific database errors
-    if (error.name === 'MongoServerError' || error.name === 'MongooseError' || error.message.includes('Mongo')) {
-      return res.status(503).json({
-        success: false,
-        message: 'Database connection error. Please try again later.',
-        error: 'Database error'
-      });
+    // Provide more specific error messages
+    let errorMessage = 'Server error during login';
+    if (error.name === 'MongoError' || error.name === 'MongooseError') {
+      errorMessage = 'Database connection error. Please try again later.';
+    } else if (error.message) {
+      errorMessage = error.message;
     }
     
     res.status(500).json({
       success: false,
-      message: 'Server error during login',
-      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error',
-      ...(process.env.NODE_ENV === 'development' && { stack: error.stack })
+      message: errorMessage,
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     });
   }
 });
@@ -807,7 +804,7 @@ router.put('/profile', auth, [
         });
         await Email.sendEmail({
           to: user.email,
-          subject: 'Profile Updated - Hyphen Gym',
+          subject: 'Profile Updated - Hyphen Wellness',
           html
         });
       } catch (e) {
@@ -884,7 +881,7 @@ router.put('/change-password', auth, [
       });
       await Email.sendEmail({
         to: user.email,
-        subject: 'Password Changed - Hyphen Gym',
+        subject: 'Password Changed - Hyphen Wellness',
         html
       });
     } catch (e) {
@@ -972,7 +969,7 @@ router.post('/forgot-password', [
 
     // Send password reset email using SMTP templates if available
     try {
-      const resetLink = `${process.env.FRONTEND_URL || 'https://hyphendubai.vercel.app'}/reset-password?token=${resetToken}`;
+      const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
       
       // Try to use SMTP templates first
       const smtpSettings = await SMTPSettings.findOne({ isActive: true });
@@ -980,7 +977,7 @@ router.post('/forgot-password', [
       if (smtpSettings && smtpSettings.emailTemplates?.passwordReset) {
         // Use SMTP template
         const passwordResetTemplate = smtpSettings.emailTemplates.passwordReset;
-        let emailSubject = passwordResetTemplate.subject || 'Password Reset Request - Hyphen Gym';
+        let emailSubject = passwordResetTemplate.subject || 'Password Reset Request - Hyphen Wellness';
         let emailHtml = passwordResetTemplate.template || '';
         
         // Replace template variables
@@ -1006,7 +1003,7 @@ router.post('/forgot-password', [
         });
         await Email.sendEmail({
           to: user.email,
-          subject: 'Password Reset Request - Hyphen Gym',
+          subject: 'Password Reset Request - Hyphen Wellness',
           html
         });
         console.log(`✅ Password reset email sent to ${user.email} via fallback`);
@@ -1083,8 +1080,8 @@ router.post('/reset-password', [
       
       if (smtpSettings && smtpSettings.emailTemplates?.passwordReset) {
         // Use SMTP template (password changed notification)
-        let emailSubject = 'Password Changed Successfully - Hyphen Gym';
-        let emailHtml = `Hi ${user.firstName},<br><br>Your password has been successfully changed on ${changeDate}.<br><br>If you did not make this change, please contact us immediately.<br><br>Best regards,<br>Hyphen Gym Team`;
+        let emailSubject = 'Password Changed Successfully - Hyphen Wellness';
+        let emailHtml = `Hi ${user.firstName},<br><br>Your password has been successfully changed on ${changeDate}.<br><br>If you did not make this change, please contact us immediately.<br><br>Best regards,<br>Hyphen Wellness Team`;
         
         // Send email via SMTP
         await smtpSettings.sendEmail(user.email, emailSubject, emailHtml);
@@ -1098,7 +1095,7 @@ router.post('/reset-password', [
         });
         await Email.sendEmail({
           to: user.email,
-          subject: 'Password Changed Successfully - Hyphen Gym',
+          subject: 'Password Changed Successfully - Hyphen Wellness',
           html
         });
         console.log(`✅ Password changed email sent to ${user.email} via fallback`);

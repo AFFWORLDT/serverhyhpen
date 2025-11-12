@@ -4,7 +4,7 @@ const CompanySettingsSchema = new mongoose.Schema({
   companyName: {
     type: String,
     required: true,
-    default: 'Hyphen Gym'
+    default: 'Hyphen Wellness'
   },
   address: {
     street: {
