@@ -54,7 +54,8 @@ router.put('/profile', auth, [
   body('address.country').optional().trim(),
   body('emergencyContact.name').optional().trim(),
   body('emergencyContact.phone').optional().trim(),
-  body('emergencyContact.relationship').optional().trim()
+  body('emergencyContact.relationship').optional().trim(),
+  body('profileImage').optional().isString(),
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -68,7 +69,7 @@ router.put('/profile', auth, [
 
     const allowedFields = [
       'firstName', 'lastName', 'phone', 'dateOfBirth', 'gender',
-      'address', 'emergencyContact'
+      'address', 'emergencyContact', 'profileImage' 
     ];
 
     // Role-specific fields
