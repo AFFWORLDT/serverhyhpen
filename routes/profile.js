@@ -58,6 +58,7 @@ router.put('/profile', auth, [
   body('profileImage').optional().isString(),
 ], async (req, res) => {
   try {
+    console.log(req.body,"---------------------------------------------request body");
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
@@ -79,6 +80,7 @@ router.put('/profile', auth, [
     if (req.user.role === 'staff') {
       allowedFields.push('position', 'department', 'workSchedule');
     }
+    
 
     const updateData = {};
     Object.keys(req.body).forEach(key => {

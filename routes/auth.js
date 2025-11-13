@@ -744,7 +744,8 @@ router.put('/profile', auth, [
   body('lastName').optional().trim().isLength({ min: 2 }),
   body('phone').optional().isMobilePhone(),
   body('dateOfBirth').optional().isISO8601(),
-  body('gender').optional().isIn(['male', 'female', 'other'])
+  body('gender').optional().isIn(['male', 'female', 'other']),
+  body('profileImage').optional().isString(),
 ], async (req, res) => {
   try {
     // Check validation errors
@@ -757,7 +758,7 @@ router.put('/profile', auth, [
       });
     }
 
-    const allowedUpdates = ['firstName', 'lastName', 'phone', 'dateOfBirth', 'gender', 'address', 'emergencyContact'];
+    const allowedUpdates = ['firstName', 'lastName', 'phone', 'dateOfBirth', 'gender', 'address', 'emergencyContact', 'profileImage'];
     const updates = {};
 
     Object.keys(req.body).forEach(key => {
